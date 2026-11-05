@@ -29,10 +29,10 @@ Tanda: `[ ]` belum, `[x]` selesai. Perbarui file ini setiap tugas selesai.
 - [x] `src/config/models.ts` berisi nama model Live, model teks, voice default, durasi telepon default.
 - [x] Konfigurasi web + EAS: `web.output: "single"`, `metro.config.js` (wasm + COEP/COOP), `vercel.json`, `eas.json` profil `preview` (APK).
 - [x] Jalankan di browser (`npx expo start --web`): layar "Hello SpeakUp".
-- [ ] Deploy ke Vercel lewat dashboard (import repo GitHub, auto-deploy setiap push ke `main`; pengaturan di `ARCHITECTURE.md §12`): "Hello SpeakUp" terbuka di URL Vercel, refresh `/call/lesson` tidak 404, `crossOriginIsolated` = `true`.
-- [ ] `eas build -p android --profile preview` → pasang APK di HP: layar "Hello SpeakUp".
+- [x] Deploy ke Vercel lewat dashboard (import repo GitHub, auto-deploy setiap push ke `main`; pengaturan di `ARCHITECTURE.md §12`): "Hello SpeakUp" terbuka di URL Vercel, refresh `/call/lesson` tidak 404, `crossOriginIsolated` = `true`.
+- ~~`eas build -p android --profile preview` → pasang APK di HP~~ → **dipindah ke akhir Fase 2** (lihat di bawah) supaya hemat jatah EAS Build: satu build APK langsung menguji kerangka + telepon native.
 
-**Selesai jika:** "Hello SpeakUp" tampil di URL Vercel dan di APK hasil EAS Build yang terpasang di HP.
+**Selesai jika:** "Hello SpeakUp" tampil di URL Vercel. ✅ (uji APK menyusul di akhir Fase 2)
 
 ---
 
@@ -40,14 +40,25 @@ Tanda: `[ ]` belum, `[x]` selesai. Perbarui file ini setiap tugas selesai.
 
 Target: bisa ngobrol suara dengan Gemini Live dari browser dan dari APK di HP. Belum ada database, belum ada kurikulum.
 
+Urutan: **web dulu** (2a), versi `.native.ts` baru dikerjakan setelah versi web lulus uji (2b), lalu satu kali build APK (2c).
+
+### 2a — Web
 - [ ] Layar input API key sederhana → simpan lewat `apiKeyStore` (secure-store di Android, localStorage di web).
 - [ ] `src/audio/pcm.ts` + unit test: Float32↔Int16, resample ke 16 kHz, base64.
-- [ ] `MicStreamer.web.ts` (getUserMedia + AudioWorklet) dan `MicStreamer.native.ts` (react-native-audio-api): rekam, resample, kirim chunk ~100 ms via callback.
-- [ ] `PcmPlayer.web.ts` dan `PcmPlayer.native.ts`: antrean PCM 24 kHz tanpa jeda + `flush()`.
+- [ ] `MicStreamer.web.ts` (getUserMedia + AudioWorklet): rekam, resample, kirim chunk ~100 ms via callback.
+- [ ] `PcmPlayer.web.ts`: antrean PCM 24 kHz tanpa jeda + `flush()`.
 - [ ] `LiveClient`: buka WebSocket, kirim `setup`, tunggu `setupComplete`, kirim audio, parse pesan server, event `audio`, `interrupted`, `inputTranscript`, `outputTranscript`, `turnComplete`, `close`, `error`.
 - [ ] Prompt sementara: guru bahasa Inggris sederhana.
 - [ ] Layar telepon minimal: tombol Telepon / Tutup, status, timer.
 - [ ] Log transkrip ke console.
+- [ ] Uji di browser (lokal + URL Vercel).
+
+### 2b — Android (setelah 2a lulus uji)
+- [ ] `MicStreamer.native.ts` (react-native-audio-api).
+- [ ] `PcmPlayer.native.ts` (react-native-audio-api).
+
+### 2c — Build APK (dipindah dari Fase 1)
+- [ ] `eas build -p android --profile preview` → pasang APK di HP: "Hello SpeakUp" tampil, lalu uji telepon.
 
 **Selesai jika:**
 - Guru menyapa dan menjawab dengan suara jernih tanpa putus-putus.
@@ -141,3 +152,5 @@ _Isi selama pengerjaan: latensi, perilaku gema, model yang dipakai, batas kuota 
 - Resolusi platform terverifikasi dengan `expo export`: bundle web hanya berisi `*.web.ts` (tanpa `react-native-audio-api`), bundle Android hanya berisi `*.native.ts`.
 - `expo-sqlite` web: header COEP `credentialless` + COOP `same-origin` wajib (dok resmi SDK 58). Di web tidak ada FTS.
 - **Uji web lokal (2026-11-05, Microsoft Edge, Windows):** `npx expo start --web` → "Hello SpeakUp" tampil; `crossOriginIsolated` = `true` (header COEP/COOP dari `metro.config.js` aktif); `/call/lesson` tampil ("Telepon Guru – Mode: lesson").
+- **Uji Vercel (2026-11-05):** https://speakup-phi-one.vercel.app — import repo GitHub di dashboard, auto-deploy dari `main`. "Hello SpeakUp" tampil; refresh `/call/lesson` tidak 404 (rewrite SPA bekerja); `crossOriginIsolated` = `true` (header dari `vercel.json` terkirim).
+- **Perubahan urutan:** uji build APK (`eas build -p android --profile preview`) ditunda dari Fase 1 ke akhir Fase 2 (2c) untuk menghemat jatah EAS Build free plan.
