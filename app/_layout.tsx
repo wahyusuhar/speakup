@@ -1,3 +1,11 @@
+import {
+  PlusJakartaSans_400Regular,
+  PlusJakartaSans_500Medium,
+  PlusJakartaSans_600SemiBold,
+  PlusJakartaSans_700Bold,
+  PlusJakartaSans_800ExtraBold,
+  useFonts,
+} from '@expo-google-fonts/plus-jakarta-sans';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
@@ -10,6 +18,15 @@ type InitState = { status: 'loading' } | { status: 'ready' } | { status: 'error'
 export default function RootLayout() {
   const loadProfile = useProfileStore((s) => s.load);
   const [init, setInit] = useState<InitState>({ status: 'loading' });
+  // Bundled font files (no request to Google at runtime). On failure, screens fall back to the system font.
+  const [fontsLoaded, fontError] = useFonts({
+    PlusJakartaSans_400Regular,
+    PlusJakartaSans_500Medium,
+    PlusJakartaSans_600SemiBold,
+    PlusJakartaSans_700Bold,
+    PlusJakartaSans_800ExtraBold,
+  });
+  const fontsReady = fontsLoaded || fontError !== null;
 
   // Opens the database (runs migrations) and loads the profile before any screen renders.
   const load = useCallback(() => {
@@ -27,11 +44,11 @@ export default function RootLayout() {
     load();
   };
 
-  if (init.status !== 'ready') {
+  if (init.status !== 'ready' || !fontsReady) {
     return (
       <View style={styles.center}>
         <StatusBar style="auto" />
-        {init.status === 'loading' ? (
+        {init.status !== 'error' ? (
           <>
             <ActivityIndicator />
             <Text style={styles.text}>Menyiapkan data…</Text>
