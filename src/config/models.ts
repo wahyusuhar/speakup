@@ -16,8 +16,13 @@ export const TEXT_MODEL = 'gemini-3.8-flash';
 /** Used once when TEXT_MODEL is rejected for quota (HTTP 429). */
 export const TEXT_MODEL_FALLBACK = 'gemini-3.5-flash-lite';
 
-/** Default prebuilt voice for the tutor (list: https://aistudio.google.com/docs/speech-generation). */
-export const DEFAULT_VOICE = 'Kore';
+/**
+ * Default prebuilt voice for the tutor (list: https://aistudio.google.com/docs/speech-generation).
+ * Live native-audio models accept any TTS prebuilt voice (docs, checked 2026-11-05).
+ * "Sulafat" is described as Warm; the previous "Kore" (Firm) sounded stiff.
+ * Other relaxed options: Achird (Friendly), Callirrhoe (Easy-going), Vindemiatrix (Gentle), Aoede (Breezy).
+ */
+export const DEFAULT_VOICE = 'Sulafat';
 
 /**
  * Call length; the call ends automatically after this.

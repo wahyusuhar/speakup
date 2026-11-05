@@ -122,7 +122,6 @@ export const STARTER_LESSONS: readonly StarterLesson[] = [
         items: [
           { en: 'How old are you?', id: 'Berapa umurmu?' },
           { en: 'I am ... years old.', id: 'Umur saya ... tahun.' },
-          { en: 'I have ...', id: 'Saya punya ...' },
         ],
       },
     ],
@@ -175,15 +174,29 @@ export const STARTER_LESSONS: readonly StarterLesson[] = [
         ],
       },
       {
+        title: 'Kegiatan rutin',
+        items: [
+          { en: 'commute to work', id: 'pergi-pulang kerja' },
+          { en: 'have lunch', id: 'makan siang' },
+          { en: 'take a break', id: 'istirahat sebentar' },
+          { en: 'go to bed', id: 'pergi tidur' },
+        ],
+      },
+      {
         title: 'Pertanyaan',
         items: [
           { en: 'What does a normal day look like for you?', id: 'Seperti apa harimu biasanya?' },
           { en: 'What is the best part of your day?', id: 'Bagian terbaik dari harimu apa?' },
+          { en: 'How long does it take you to get to work?', id: 'Berapa lama perjalananmu ke tempat kerja?' },
+          { en: 'What do you usually do to relax?', id: 'Biasanya kamu melakukan apa untuk bersantai?' },
         ],
       },
       {
         title: 'Cerita bebas',
-        items: [{ en: 'Tell me about your last weekend.', id: 'Ceritakan akhir pekanmu yang lalu.' }],
+        items: [
+          { en: 'Tell me about your last weekend.', id: 'Ceritakan akhir pekanmu yang lalu.' },
+          { en: 'What would you like to change about your routine?', id: 'Apa yang ingin kamu ubah dari rutinitasmu?' },
+        ],
       },
     ],
   },

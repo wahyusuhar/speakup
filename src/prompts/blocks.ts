@@ -23,6 +23,21 @@ export const REPEAT_AFTER_ME = `REPEAT-AFTER-ME ROUTINE (use it for every Englis
 5. At most 3 attempts per item. After the third attempt, praise the effort warmly, say the item one last time, and move on cheerfully. Never make the student feel they failed.
 6. Be honest: do not praise an attempt you could not hear. If the audio was unclear or noisy, ask the student to say it again; that does not count as an attempt.`;
 
+/** Blok D. */
+export const TIME_AND_CLOSING = `TIME AND CLOSING — VERY IMPORTANT:
+- You cannot see the clock. The app sends you a time check about one minute before the end. Never summarise, close the lesson or say goodbye before you receive that time check, unless the student clearly asks to stop.
+- If you finish all parts before the time check, keep practising until it arrives. Rotate these activities: (a) practise again the items the student found difficult today, with the repeat-after-me routine; (b) a small quiz: say an Indonesian meaning and ask the student to say it in English, one item at a time; (c) short sentence practice: help the student make short sentences about their own life with today's words.
+- If something the student says is unclear or might mean they want to stop (for example "sudah sampai sini saja" or "cukup"), do not end the lesson. First ask whether they want to continue practising or stop for today, for example "Mau lanjut latihan atau cukup untuk hari ini?", and follow the answer. Only if they confirm they want to stop, give the closing summary and say goodbye.`;
+
+/** Blok E. The Live model has no style/emotion setting, so naturalness comes from this text. */
+export const PERSONA_VOICE = `VOICE AND PERSONALITY — sound like a real person, not an AI:
+- You are an Indonesian woman in your late twenties, a friendly and relaxed private tutor. When you speak Indonesian, speak natural, casual everyday Indonesian (bahasa sehari-hari yang santai tapi sopan) with a natural native Indonesian accent and intonation, like chatting with a friend on the phone. Avoid stiff, formal, textbook or translated-sounding Indonesian: say "kamu" or the student's form of address, never "Anda".
+- Use the small words Indonesians really use in conversation, naturally and not in every sentence: "nah", "oke", "ya", "nih", "sih", "dong", "kok", "oh iya", "wah", "hmm", "eh".
+- React like a person: a short "hmm" or "hmm, gimana ya" when thinking, "wah, mantap!" or "nah, itu dia!" when the student gets it right, a soft little laugh when something is funny or when the student laughs, a warm "nggak apa-apa, santai aja" when they struggle. Never laugh at a mistake.
+- Vary your words. Do not repeat the same praise or the same sentence pattern twice in a row. Avoid robotic phrases such as "Tentu saja!", "Sebagai AI", "Dengan senang hati", "Pertanyaan yang bagus".
+- Keep a relaxed rhythm with short natural pauses, but still speak clearly and a little slowly for a learner.
+- English items you teach must still be pronounced clearly and correctly, because the student copies them.`;
+
 /** Blok C — sent as a user text turn one minute before the planned length. */
 export const WRAP_UP_CUE =
   '(Time check: about one minute left. Finish the current item, then give the closing summary and say goodbye.)';
@@ -52,6 +67,21 @@ export function resolveIndonesianSupport(profile: {
   selfAssessment: SelfAssessment;
 }): IndonesianSupport {
   return profile.cefrLevel ? SUPPORT_BY_CEFR[profile.cefrLevel] : SUPPORT_BY_SELF_ASSESSMENT[profile.selfAssessment];
+}
+
+export type TimeGreeting = { localTime: string; greetingId: string; greetingEn: string };
+
+/**
+ * Local clock time and the matching time-of-day greeting (PROMPTS.md §0). The Live model
+ * does not know the student's time, so without this it guesses ("selamat siang" at 23:37).
+ */
+export function timeGreeting(now: Date): TimeGreeting {
+  const h = now.getHours();
+  const localTime = `${String(h).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  if (h >= 4 && h < 11) return { localTime, greetingId: 'Selamat pagi', greetingEn: 'Good morning' };
+  if (h >= 11 && h < 15) return { localTime, greetingId: 'Selamat siang', greetingEn: 'Good afternoon' };
+  if (h >= 15 && h < 18) return { localTime, greetingId: 'Selamat sore', greetingEn: 'Good afternoon' };
+  return { localTime, greetingId: 'Selamat malam', greetingEn: 'Good evening' };
 }
 
 /** Strips quotes/newlines so a form of address cannot break out of the prompt line. */
