@@ -28,7 +28,7 @@ Tanda: `[ ]` belum, `[x]` selesai. Perbarui file ini setiap tugas selesai.
 - [x] Buat struktur folder sesuai `ARCHITECTURE.md §3` (file kosong/stub), termasuk pemisahan `*.web.ts` / `*.native.ts` untuk audio dan penyimpanan API key (§3a).
 - [x] `src/config/models.ts` berisi nama model Live, model teks, voice default, durasi telepon default.
 - [x] Konfigurasi web + EAS: `web.output: "single"`, `metro.config.js` (wasm + COEP/COOP), `vercel.json`, `eas.json` profil `preview` (APK).
-- [ ] Jalankan di browser (`npx expo start --web`): layar "Hello SpeakUp".
+- [x] Jalankan di browser (`npx expo start --web`): layar "Hello SpeakUp".
 - [ ] Deploy ke Vercel: layar "Hello SpeakUp" terbuka di URL Vercel, header COEP/COOP terkirim.
 - [ ] `eas build -p android --profile preview` → pasang APK di HP: layar "Hello SpeakUp".
 
@@ -140,3 +140,4 @@ _Isi selama pengerjaan: latensi, perilaku gema, model yang dipakai, batas kuota 
 - **Pindah ke web + EAS (2026-11-05):** `expo-dev-client` dilepas (APK `preview` adalah build release, tidak butuh dev client). `expo-secure-store` tidak mendukung web → `apiKeyStore.web.ts` memakai `localStorage`.
 - Resolusi platform terverifikasi dengan `expo export`: bundle web hanya berisi `*.web.ts` (tanpa `react-native-audio-api`), bundle Android hanya berisi `*.native.ts`.
 - `expo-sqlite` web: header COEP `credentialless` + COOP `same-origin` wajib (dok resmi SDK 58). Di web tidak ada FTS.
+- **Uji web lokal (2026-11-05, Microsoft Edge, Windows):** `npx expo start --web` → "Hello SpeakUp" tampil; `crossOriginIsolated` = `true` (header COEP/COOP dari `metro.config.js` aktif); `/call/lesson` tampil ("Telepon Guru – Mode: lesson").
