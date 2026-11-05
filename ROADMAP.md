@@ -6,6 +6,21 @@ Alur build: `npx expo start --web` → `git push` ke `main` (Vercel auto-deploy 
 
 Tanda: `[ ]` belum, `[x]` selesai. Perbarui file ini setiap tugas selesai.
 
+**Urutan kerja (diubah 2026-11-05 — aplikasi harus berfungsi sebagai guru dulu, bukan hanya telepon; web dulu):**
+1. Fase 2a — prototipe telepon web ✅
+2. **Fase 4** — database & onboarding
+3. **Fase 5** — placement, kurikulum + layar Materi Pelajaran
+4. **Fase 6** — telepon pelajaran, laporan sesi, memori guru
+5. **Fase 6b** — layar Progres
+6. **Fase 6c** — ekspor/impor backup data (file JSON)
+7. Fase 3 — telepon tahan lama (sambung ulang, mute, dll.) — *ditunda*
+8. Fase 2b/2c — versi Android + build APK — *ditunda*
+9. Fase 7, Fase 8
+
+Nomor fase tetap dipakai sebagai label; bagian di bawah diurutkan sesuai urutan kerja.
+
+> **Batasan selama Fase 3 ditunda:** satu koneksi Live hanya ~10 menit, jadi telepon bisa terputus sekitar menit ke-10. Transkrip yang sudah ada tetap disimpan dan dianalisis. Sementara itu durasi telepon pelajaran dibatasi lewat config (≤ 9 menit) agar selesai sebelum batas koneksi.
+
 ---
 
 ## Fase 0 — Persiapan (manual, oleh Mas Wahyu)
@@ -55,79 +70,106 @@ Urutan: **web dulu** (2a), versi `.native.ts` baru dikerjakan setelah versi web 
 - [x] Guru menyapa dengan "Mas Wahyu" (placeholder `{{address_as}}`; nanti dari profil).
 - [x] Transkrip tampil di layar telepon (selain di console).
 
-### 2b — Android (setelah 2a lulus uji)
-- [ ] `MicStreamer.native.ts` (react-native-audio-api).
-- [ ] `PcmPlayer.native.ts` (react-native-audio-api).
+**Selesai jika (2a):** guru menyapa dan menjawab dengan suara jernih, barge-in bekerja, transkrip dua arah tampil. ✅ (web)
 
-### 2c — Build APK (dipindah dari Fase 1)
-- [ ] `eas build -p android --profile preview` → pasang APK di HP: "Hello SpeakUp" tampil, lalu uji telepon.
-
-**Selesai jika:**
-- Guru menyapa dan menjawab dengan suara jernih tanpa putus-putus.
-- Saat Mas Wahyu bicara di tengah jawaban guru, guru berhenti (barge-in).
-- Transkrip dua arah tercetak di log.
-- Diuji di browser (Chrome) dan di APK, dengan speaker dan earphone; catat hasil soal gema di bagian *Catatan* di bawah.
+2b/2c (Android + APK) dipindah ke bawah, setelah Fase 3.
 
 ---
 
-## Fase 3 — Layar Telepon Lengkap
+## Fase 4 — Database & Onboarding (web)
 
-- [ ] `useLiveCall` dengan state mesin (`ARCHITECTURE.md §4`).
-- [ ] UI bergaya telepon: avatar guru, status, timer, Mute, Speaker, Tutup, indikator level suara.
-- [ ] Mute → hentikan kirim audio + `audioStreamEnd`.
-- [ ] Peringatan di menit 13, otomatis berakhir di menit 15 (dari config).
-- [ ] `contextWindowCompression` + `sessionResumption` + penanganan `goAway`.
-- [ ] Penanganan error sesuai `ARCHITECTURE.md §10`.
-- [ ] Layar tetap menyala selama telepon (`expo-keep-awake`).
+- [ ] `db/client.ts` + migrasi v1 (skema `ARCHITECTURE.md §8`, termasuk `address_as` dan kolom materi di `curriculum_units`); `expo-sqlite` web (wasm + header COEP/COOP sudah ada).
+- [ ] Repo + validasi `zod` untuk kolom JSON: profile, sessions, transcript_turns, curriculum, mistakes, vocabulary, settings. Unit test dengan DB in-memory.
+- [ ] Onboarding: sapaan (mis. "Mas Wahyu"), self-assessment, tujuan, menit per hari, peringatan privasi, API key.
+- [ ] Beranda mengarahkan ke onboarding jika profil belum ada.
+- [ ] Telepon memakai `address_as` dari profil (ganti konstanta sementara).
+- [ ] Simpan setiap sesi telepon + transkrip ke DB (juga saat sambungan terputus).
+- [ ] Durasi telepon dibatasi ≤ 9 menit lewat config selama Fase 3 ditunda (lihat batasan di atas).
 
-**Selesai jika:** telepon 15 menit penuh berjalan tanpa putus, dan mode pesawat di tengah telepon ditangani dengan rapi.
-
----
-
-## Fase 4 — Database & Onboarding
-
-- [ ] `db/client.ts` + migrasi v1 (skema `ARCHITECTURE.md §8`).
-- [ ] Repo: profile, sessions, transcript_turns, curriculum, mistakes, vocabulary, settings.
-- [ ] Onboarding: self-assessment, tujuan, menit per hari, peringatan privasi, API key.
-- [ ] Simpan setiap sesi telepon + transkrip ke DB.
-
-**Selesai jika:** setelah app ditutup dan dibuka lagi, data profil dan riwayat transkrip masih ada.
+**Selesai jika:** setelah tab browser ditutup dan dibuka lagi, data profil dan riwayat transkrip masih ada.
 
 ---
 
-## Fase 5 — Placement & Kurikulum
+## Fase 5 — Placement, Kurikulum & Layar Materi
 
-- [ ] `ai/textModel.ts`: wrapper `generateContent` + JSON schema + validasi `zod` + retry sekali.
+- [ ] `ai/textModel.ts`: wrapper `generateContent` + JSON schema + validasi `zod` + retry sekali (+ fallback model saat 429).
 - [ ] Prompt `placementCall` di mode telepon `placement`.
 - [ ] `placement()` → simpan level, kekuatan, kelemahan, minat, porsi bahasa Indonesia.
 - [ ] Layar hasil placement (bahasa Indonesia).
-- [ ] `planCurriculum()` mode `initial` → simpan unit.
-- [ ] Beranda: "Pelajaran hari ini" = unit `pending`/`needs_review` posisi terkecil.
+- [ ] `planCurriculum()` mode `initial` → simpan unit **beserta materi** (arti kosakata, contoh kalimat, penjelasan grammar, skenario bahasa Indonesia).
+- [ ] Layar **Materi Pelajaran** `app/lesson/[unitId].tsx` (F12): judul, tujuan, kosakata + arti + contoh, grammar + penjelasan + contoh, skenario, tombol **"Mulai Telepon"**.
+- [ ] Beranda: "Pelajaran hari ini" = unit `pending`/`needs_review` posisi terkecil → buka layar Materi.
 
-**Selesai jika:** alur onboarding → placement → hasil level → beranda dengan pelajaran pertama berjalan mulus.
+**Selesai jika:** alur onboarding → placement → hasil level → beranda → layar Materi pelajaran pertama berjalan mulus, dan materi tampil tanpa memanggil AI lagi.
 
 ---
 
 ## Fase 6 — Telepon Pelajaran, Laporan, Memori Guru
 
-- [ ] Builder system prompt `tutorCall` (profil + pelajaran + preferensi), batas panjang.
+- [ ] Builder system prompt `tutorCall` (profil + materi unit + preferensi), batas panjang; ganti prompt sementara.
 - [ ] `analyzeSession()` setelah telepon (lewati jika < 30 detik).
 - [ ] Simpan laporan, skor, mistakes, vocabulary; perbarui `tutor_notes`, minat, status unit.
 - [ ] Layar Laporan Sesi.
 - [ ] Hitung `recurring_mistakes` (5 `pattern_key` terbanyak dari 5 sesi terakhir) untuk prompt berikutnya.
 - [ ] Pemicu `planCurriculum` mode `extend` dan `remedial` (`PROMPTS.md §5`).
 
-**Selesai jika:** pada telepon ke-2 dan ke-3, guru melatih ulang kesalahan dari sesi sebelumnya tanpa diminta. → **MVP (v0.5) tercapai.**
+**Selesai jika:** pada telepon ke-2 dan ke-3, guru melatih ulang kesalahan dari sesi sebelumnya tanpa diminta.
+
+---
+
+## Fase 6b — Layar Progres (P0)
+
+- [ ] `db/repos/stats`: query agregat (`ARCHITECTURE.md §8`) + unit test.
+- [ ] Layar `app/progress.tsx` (F7): level saat ini, unit selesai/total, skor per sesi, total menit telepon, jumlah kosakata, 5 kesalahan tersering.
+- [ ] Ringkasan progres di Beranda + tautan ke layar Progres.
+
+**Selesai jika:** angka progres berubah dengan benar setelah sesi baru dianalisis. → **MVP (v0.5, web) tercapai.**
+
+---
+
+## Fase 6c — Ekspor/Impor Backup (dimajukan dari Fase 8)
+
+Alasan: data web tersimpan per browser/origin dan hilang jika data situs dihapus.
+
+- [ ] Ekspor: semua tabel (kecuali API key) → satu file JSON berversi (`schema_version` = `PRAGMA user_version`), diunduh lewat browser.
+- [ ] Impor: unggah file JSON → validasi `zod` → konfirmasi "data saat ini akan diganti" → ganti isi DB dalam satu transaksi.
+- [ ] Tolak file dengan `schema_version` lebih baru dari app; file lebih lama dimigrasi dulu.
+- [ ] Unit test: ekspor → impor menghasilkan data yang sama.
+- [ ] Tombol di Pengaturan/Progres: "Unduh backup" dan "Pulihkan dari backup".
+
+**Selesai jika:** backup dari `localhost` bisa dipulihkan di URL Vercel (dan sebaliknya) dengan data identik.
+
+---
+
+## Fase 3 — Telepon Tahan Lama (ditunda)
+
+- [ ] `useLiveCall` dengan state mesin lengkap (`ARCHITECTURE.md §4`).
+- [ ] UI telepon: Mute, Speaker, indikator level suara.
+- [ ] Mute → hentikan kirim audio + `audioStreamEnd`.
+- [ ] `contextWindowCompression` + `sessionResumption` + sambung ulang otomatis saat `goAway` (koneksi ~10 menit).
+- [ ] Kembalikan durasi telepon ke 15 menit: peringatan di menit 13, otomatis berakhir di menit 15 (dari config).
+- [ ] Penanganan error sesuai `ARCHITECTURE.md §10`.
+- [ ] Layar tetap menyala selama telepon (`expo-keep-awake`).
+
+**Selesai jika:** telepon 15 menit penuh berjalan tanpa putus, dan putus jaringan di tengah telepon ditangani dengan rapi.
+
+---
+
+## Fase 2b/2c — Android & APK (ditunda)
+
+- [ ] `MicStreamer.native.ts` (react-native-audio-api).
+- [ ] `PcmPlayer.native.ts` (react-native-audio-api).
+- [ ] `eas build -p android --profile preview` → pasang APK di HP: uji onboarding, materi, telepon (speaker & earphone, catat gema), laporan, progres.
 
 ---
 
 ## Fase 7 — v1.0
 
-- [ ] Pengaturan: voice guru, kecepatan, porsi bahasa Indonesia, reset progres.
+- [ ] Pengaturan: sapaan, voice guru, kecepatan, porsi bahasa Indonesia, reset progres.
 - [ ] Riwayat sesi + buka laporan & transkrip lama.
 - [ ] Bank kosakata + review flashcard (spaced repetition sederhana).
-- [ ] Progres: grafik skor, total menit, streak.
-- [ ] Subtitle opsional saat telepon.
+- [ ] Progres lanjutan: streak harian, grafik lebih kaya.
+- [ ] Tombol sembunyikan/tampilkan transkrip saat telepon (latihan listening); pilihan terakhir diingat.
 - [ ] Mode *push-to-talk* (jika gema jadi masalah).
 
 ---
@@ -137,7 +179,6 @@ Urutan: **web dulu** (2a), versi `.native.ts` baru dikerjakan setelah versi web 
 - [ ] Placement ulang otomatis tiap 10 sesi → bisa naik level.
 - [ ] Mode skenario bebas (interview kerja, restoran, bandara).
 - [ ] Pengingat harian (notifikasi lokal).
-- [ ] Ekspor/impor backup DB ke file.
 - [ ] Jika ingin dibagikan ke orang lain: backend *ephemeral token* gratis (Cloudflare Workers).
 
 ---

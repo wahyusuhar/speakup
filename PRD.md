@@ -48,12 +48,13 @@ SpeakUp mengisi celah itu: **guru privat yang bisa ditelepon kapan saja**, yang 
 Buka app pertama kali
   → Onboarding: isi self-assessment + tujuan belajar
   → Telepon placement (5–7 menit) → AI menentukan level CEFR
-  → AI menyusun kurikulum awal
-  → Beranda: "Pelajaran hari ini" + tombol TELEPON GURU
-  → Telepon pelajaran (10–20 menit, suara realtime)
+  → AI menyusun kurikulum awal + materi tiap unit
+  → Beranda: "Pelajaran hari ini" + ringkasan progres
+  → Layar Materi Pelajaran: baca tujuan, kosakata, grammar, skenario → MULAI TELEPON
+  → Telepon pelajaran (10–20 menit, suara realtime, teks percakapan tampil di layar)
   → Tutup telepon → Laporan sesi (koreksi, kosakata, skor)
   → AI memperbarui progres & menyiapkan pelajaran berikutnya
-  → Kembali ke Beranda
+  → Kembali ke Beranda / Progres
 ```
 
 ## 5. Fitur
@@ -61,7 +62,7 @@ Buka app pertama kali
 Prioritas: **P0** wajib untuk MVP, **P1** penting setelah MVP, **P2** nanti.
 
 ### F1. Onboarding & Self-Assessment — P0
-- Pengguna mengisi: perkiraan kemampuan (pilihan: "Hampir nol", "Dasar", "Menengah", "Lancar"), tujuan belajar (kerja, interview, ngobrol sehari-hari, dll.), target waktu per hari.
+- Pengguna mengisi: nama sapaan (mis. "Mas Wahyu", dipakai guru saat menyapa), perkiraan kemampuan (pilihan: "Hampir nol", "Dasar", "Menengah", "Lancar"), tujuan belajar (kerja, interview, ngobrol sehari-hari, dll.), target waktu per hari.
 - Data ini menjadi konteks awal guru.
 - **Diterima jika:** data tersimpan di SQLite dan dipakai di prompt placement.
 
@@ -70,8 +71,7 @@ Prioritas: **P0** wajib untuk MVP, **P1** penting setelah MVP, **P2** nanti.
 - Percakapan suara dua arah realtime via Gemini Live API.
 - **Barge-in:** pengguna bisa memotong guru di tengah kalimat; audio guru langsung berhenti.
 - Indikator visual saat pengguna berbicara (level mikrofon) dan saat guru berbicara.
-- Transkrip suara pengguna dan guru direkam di latar belakang (tidak wajib ditampilkan saat telepon).
-- Mode teks opsional selama telepon: tombol "Lihat teks" untuk menampilkan subtitle (P1).
+- Transkrip suara pengguna dan guru **ditampilkan di layar** selama telepon (gelembung percakapan, teks yang sedang diucapkan ikut muncul) dan disimpan setelah telepon. (Sudah ada sejak prototipe Fase 2.)
 - Jika koneksi terputus: tampilkan pesan, simpan transkrip yang sudah ada, tawarkan sambung ulang.
 - **Diterima jika:** jeda dari pengguna selesai bicara sampai guru mulai menjawab terasa wajar (target < 1,5 detik di jaringan 4G), barge-in bekerja, dan transkrip tersimpan setelah telepon ditutup.
 
@@ -81,9 +81,21 @@ Prioritas: **P0** wajib untuk MVP, **P1** penting setelah MVP, **P2** nanti.
 - **Diterima jika:** level dan ringkasan tersimpan, dan pengguna melihat hasilnya dalam bahasa Indonesia.
 
 ### F4. Kurikulum Adaptif — P0
-- AI menyusun daftar unit pelajaran (misalnya 8–12 unit untuk level saat ini), tiap unit punya tujuan, kosakata target, dan pola grammar target.
+- AI menyusun daftar unit pelajaran (misalnya 8–12 unit untuk level saat ini), tiap unit punya tujuan, kosakata target, pola grammar target, dan skenario. **Materi lengkap untuk layar Materi Pelajaran (F12) dibuat sekaligus** oleh model teks saat unit disusun, lalu disimpan di database (tidak dibuat ulang setiap dibuka).
 - Setelah tiap sesi, AI bisa: menandai unit selesai, mengulang unit, atau menyisipkan unit remedial berdasarkan kesalahan berulang.
 - **Diterima jika:** Beranda selalu menampilkan satu "Pelajaran hari ini" yang berasal dari kurikulum.
+
+### F12. Layar Materi Pelajaran — P0
+- Tampil **sebelum** telepon pelajaran, dibuka dari "Pelajaran hari ini" di Beranda.
+- Isi (bahasa Indonesia, contoh kalimat dalam bahasa Inggris):
+  - Judul unit dan level CEFR.
+  - Tujuan pelajaran ("Setelah pelajaran ini kamu bisa …").
+  - Kosakata target: kata/frasa, arti bahasa Indonesia, satu contoh kalimat.
+  - Pola grammar target: nama pola, penjelasan singkat bahasa Indonesia (maks 2 kalimat), satu contoh kalimat.
+  - Skenario percakapan (situasi yang akan dimainkan bersama guru), dalam bahasa Indonesia.
+- Tombol **"Mulai Telepon"** di layar ini membuka telepon mode `lesson` untuk unit tersebut; guru memakai materi yang sama.
+- Materi berasal dari database (dibuat oleh `planCurriculum`), jadi layar terbuka instan dan tidak memakai kuota AI.
+- **Diterima jika:** setiap unit kurikulum punya materi lengkap yang tampil di layar ini, dan telepon yang dimulai dari sini memakai kosakata/grammar unit itu.
 
 ### F5. Laporan Sesi (koreksi) — P0
 - Muncul otomatis setelah telepon ditutup (proses analisis beberapa detik).
@@ -94,8 +106,17 @@ Prioritas: **P0** wajib untuk MVP, **P1** penting setelah MVP, **P2** nanti.
 - Ringkasan profil murid (level, kesalahan berulang, kosakata yang sudah dikuasai, topik yang disukai) disisipkan ke system prompt setiap telepon.
 - **Diterima jika:** guru menyebut atau melatih ulang kesalahan dari sesi sebelumnya tanpa diminta.
 
-### F7. Progres — P1
-- Grafik sederhana skor per sesi, total menit berbicara, streak harian, jumlah kosakata.
+### F7. Progres — P0
+- Layar Progres menampilkan:
+  - Level CEFR saat ini (dari placement).
+  - Unit selesai / total unit kurikulum.
+  - Skor per sesi (fluency, grammar, vocabulary 1–5), sebagai grafik sederhana atau daftar.
+  - Total menit telepon (jumlah durasi sesi).
+  - Jumlah kosakata yang sudah dipelajari.
+  - Kesalahan yang paling sering muncul (5 `pattern_key` teratas, dengan contoh dan penjelasan bahasa Indonesia).
+- Ringkasan singkat (level, unit selesai/total) juga tampil di Beranda.
+- Streak harian: P1.
+- **Diterima jika:** semua angka di atas dihitung dari database lokal dan berubah setelah sesi baru dianalisis.
 
 ### F8. Bank Kosakata & Review — P1
 - Daftar kosakata dari laporan sesi. Review ringan (flashcard) memakai spaced repetition sederhana.
@@ -146,8 +167,8 @@ Prioritas: **P0** wajib untuk MVP, **P1** penting setelah MVP, **P2** nanti.
 | Versi | Isi |
 |---|---|
 | v0.1 — Prototipe | F2 dasar: tombol telepon, ngobrol suara dengan Gemini Live, barge-in. |
-| v0.5 — MVP | F1, F2, F3, F4, F5, F6, F10. |
-| v1.0 | + F7, F8, F9, subtitle saat telepon. |
+| v0.5 — MVP | F1, F2, F3, F4, F12, F5, F6, F7, F10 (web dulu). |
+| v1.0 | + F8, F9, telepon tahan lama (sambung ulang, mute), versi Android (APK). |
 | v1.x | F11, placement ulang berkala, mode skenario (interview, restoran, dll.). |
 
 Detail pengerjaan per fase ada di `ROADMAP.md`.

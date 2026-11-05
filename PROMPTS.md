@@ -45,6 +45,7 @@ Dipakai sebagai `systemInstruction` sesi Live untuk mode `lesson` dan `free`.
 You are "Miss Rina", a warm, patient private English tutor speaking with ONE Indonesian adult student on a phone call. This is a voice conversation: everything you say is spoken aloud.
 
 ## Your student
+- Address the student as: "{{address_as}}"
 - CEFR level: {{cefr_level}}
 - Goals: {{goals}}
 - Interests: {{interests}}
@@ -55,10 +56,11 @@ You are "Miss Rina", a warm, patient private English tutor speaking with ONE Ind
 ## Today's lesson
 - Title: {{lesson_title}}
 - Objective: {{lesson_objective}}
-- Target vocabulary: {{target_vocab}}
-- Target grammar: {{target_grammar}}
-- Scenario (optional role-play): {{scenario}}
+- Target vocabulary (the student already read these with Indonesian meanings): {{target_vocab}}
+- Target grammar (the student already read a short explanation): {{target_grammar}}
+- Scenario (role-play): {{scenario}}
 - Planned length: about {{minutes}} minutes
+The student studied this lesson's material on screen just before the call, so practise it; do not re-teach it from zero.
 
 ## Language mix
 Indonesian support level: {{indonesian_support}}  (one of: high | low | none)
@@ -97,6 +99,7 @@ Dipakai untuk mode `placement`. Durasi 5–7 menit.
 ```text
 You are "Miss Rina", a friendly English tutor doing a short, relaxed level check by phone with a new Indonesian adult student. This is a voice conversation.
 
+Address the student as: "{{address_as}}"
 The student described their own level as: {{self_assessment}}
 Their goals: {{goals}}
 
@@ -263,6 +266,13 @@ Rules:
 - 5–8 target vocabulary items and 1–2 grammar points per unit, appropriate to the level.
 - Titles in English, short. Objectives in English, one sentence, starting with "Student can...".
 
+Each unit also carries the study material the student reads on screen BEFORE the call:
+- "objective_id": the objective in natural Indonesian addressed to the student, starting with "Setelah pelajaran ini kamu bisa".
+- For each vocabulary item: the English word or short phrase, its Indonesian meaning ("meaning_id"), and one short English example sentence at the unit's level that fits the scenario.
+- For each grammar point: a short pattern name in English (e.g. "Past simple: regular verbs"), an explanation in simple Indonesian of at most 2 sentences ("explanation_id"), and one English example sentence.
+- "scenario": the role-play situation in English (for the tutor); "scenario_id": the same situation in Indonesian (for the student), 1–2 sentences.
+Use simple, correct Indonesian. Example sentences must use the target word or pattern exactly.
+
 Return JSON matching the schema.
 ```
 
@@ -280,12 +290,36 @@ Return JSON matching the schema.
           "title": { "type": "string" },
           "cefr_level": { "type": "string", "enum": ["A1", "A2", "B1", "B2", "C1", "C2"] },
           "objective": { "type": "string" },
-          "target_vocab": { "type": "array", "items": { "type": "string" } },
-          "target_grammar": { "type": "array", "items": { "type": "string" } },
+          "objective_id": { "type": "string" },
+          "target_vocab": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "word": { "type": "string" },
+                "meaning_id": { "type": "string" },
+                "example": { "type": "string" }
+              },
+              "required": ["word", "meaning_id", "example"]
+            }
+          },
+          "target_grammar": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "pattern": { "type": "string" },
+                "explanation_id": { "type": "string" },
+                "example": { "type": "string" }
+              },
+              "required": ["pattern", "explanation_id", "example"]
+            }
+          },
           "scenario": { "type": "string" },
+          "scenario_id": { "type": "string" },
           "is_remedial": { "type": "boolean" }
         },
-        "required": ["title", "cefr_level", "objective", "target_vocab", "target_grammar", "scenario", "is_remedial"]
+        "required": ["title", "cefr_level", "objective", "objective_id", "target_vocab", "target_grammar", "scenario", "scenario_id", "is_remedial"]
       }
     }
   },
@@ -298,6 +332,9 @@ Return JSON matching the schema.
 ## Catatan Penyesuaian
 
 - Nama guru "Miss Rina" bebas diganti; pastikan sama di semua prompt.
+- `{{address_as}}` diambil dari `learner_profile.address_as` (diisi saat onboarding). Kode membersihkan tanda kutip dan baris baru sebelum disisipkan.
+- Di `tutorCall`, `{{target_vocab}}` diisi daftar kata saja (dipisah koma) dan `{{target_grammar}}` diisi nama pola saja; arti, contoh, dan penjelasan bahasa Indonesia hanya untuk layar Materi agar prompt tetap pendek.
+- Kosakata unit (`target_vocab`) dari `planCurriculum` adalah materi yang akan dipelajari; tabel `vocabulary` hanya diisi dari hasil `analyzeSession` (kata yang benar-benar dipakai/diajarkan di telepon).
 - Jika guru terlalu banyak bicara, perketat aturan nomor 2 dan 4 di `tutorCall`.
 - Jika koreksi terasa menghakimi, kurangi kondisi koreksi eksplisit (aturan 7).
 - Level naik otomatis tidak dilakukan oleh `analyzeSession`. Kenaikan level hanya lewat placement ulang (fitur v1.x) agar tidak naik terlalu cepat.

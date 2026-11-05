@@ -56,11 +56,13 @@ speakup/
 │   ├── _layout.tsx
 │   ├── index.tsx                 # Beranda
 │   ├── onboarding/
-│   │   ├── index.tsx             # Self-assessment
+│   │   ├── index.tsx             # Sapaan, self-assessment, tujuan, menit/hari, privasi
 │   │   └── api-key.tsx           # Input API key
+│   ├── lesson/[unitId].tsx       # Layar Materi Pelajaran + tombol "Mulai Telepon" (F12)
 │   ├── call/
-│   │   └── [mode].tsx            # Layar telepon (mode: placement | lesson | free)
+│   │   └── [mode].tsx            # Layar telepon (mode: placement | lesson | free; lesson membawa ?unitId=)
 │   ├── report/[sessionId].tsx    # Laporan sesi
+│   ├── progress.tsx              # Layar Progres (F7)
 │   ├── history.tsx
 │   ├── vocabulary.tsx
 │   └── settings.tsx
@@ -98,7 +100,7 @@ speakup/
 │   ├── db/
 │   │   ├── client.ts             # Buka DB + migrasi (PRAGMA user_version)
 │   │   ├── migrations.ts
-│   │   └── repos/                # profile, sessions, curriculum, mistakes, vocab
+│   │   └── repos/                # profile, sessions, transcript, curriculum, mistakes, vocab, settings, stats (agregasi untuk Progres)
 │   ├── store/                    # zustand stores
 │   └── components/
 ├── app.json                      # android.package, version, versionCode, web.output
@@ -130,7 +132,7 @@ Aturan:
 ## 4. Alur Telepon (inti)
 
 ```
-[Tombol Telepon]
+[Beranda: Pelajaran hari ini] → [Layar Materi: unit dari DB] → [Mulai Telepon]
    │
    ├─ 1. Minta izin mikrofon
    ├─ 2. Bangun system instruction:
@@ -233,7 +235,8 @@ Jika suara guru dari speaker terekam lagi oleh mikrofon, model bisa "memotong di
 - Tiga pemanggilan utama (prompt lengkap di `PROMPTS.md`):
   1. `placement(transcript, selfAssessment)` → level + kekuatan/kelemahan.
   2. `analyzeSession(transcript, lesson, profile)` → laporan sesi + perubahan profil.
-  3. `planCurriculum(profile, history)` → daftar unit / unit berikutnya.
+  3. `planCurriculum(profile, history)` → daftar unit / unit berikutnya **beserta materinya** (arti kosakata, contoh kalimat, penjelasan grammar bahasa Indonesia, skenario bahasa Indonesia). Materi disimpan di `curriculum_units`, sehingga layar Materi tidak memanggil AI lagi.
+- Kuota: panggilan model teks hanya terjadi setelah placement, setelah tiap telepon (analisis), dan saat kurikulum perlu ditambah. Tidak ada panggilan AI saat membuka layar Materi atau Progres.
 
 ## 8. Skema Database
 
@@ -243,6 +246,7 @@ Migrasi dikelola dengan `PRAGMA user_version`.
 -- Profil murid (1 baris)
 CREATE TABLE learner_profile (
   id INTEGER PRIMARY KEY CHECK (id = 1),
+  address_as TEXT NOT NULL,               -- sapaan untuk guru, mis. "Mas Wahyu"
   self_assessment TEXT NOT NULL,          -- "hampir_nol" | "dasar" | "menengah" | "lancar"
   goals TEXT NOT NULL,                    -- JSON array
   daily_minutes INTEGER NOT NULL DEFAULT 15,
@@ -259,10 +263,12 @@ CREATE TABLE curriculum_units (
   position INTEGER NOT NULL,
   cefr_level TEXT NOT NULL,
   title TEXT NOT NULL,
-  objective TEXT NOT NULL,
-  target_vocab TEXT NOT NULL,             -- JSON array
-  target_grammar TEXT NOT NULL,           -- JSON array
-  scenario TEXT,                          -- situasi roleplay, opsional
+  objective TEXT NOT NULL,                -- bahasa Inggris, untuk prompt guru
+  objective_id TEXT NOT NULL,             -- bahasa Indonesia, untuk layar Materi
+  target_vocab TEXT NOT NULL,             -- JSON array of {word, meaning_id, example}
+  target_grammar TEXT NOT NULL,           -- JSON array of {pattern, explanation_id, example}
+  scenario TEXT NOT NULL,                 -- situasi roleplay, bahasa Inggris (prompt)
+  scenario_id TEXT NOT NULL,              -- situasi roleplay, bahasa Indonesia (layar Materi)
   status TEXT NOT NULL DEFAULT 'pending', -- pending | in_progress | done | needs_review
   is_remedial INTEGER NOT NULL DEFAULT 0,
   created_at TEXT NOT NULL
@@ -318,6 +324,18 @@ CREATE TABLE settings (
 ```
 
 API key **tidak** disimpan di tabel `settings`, melainkan lewat `apiKeyStore` (`expo-secure-store` / `localStorage`).
+
+Kolom JSON (`goals`, `strengths`, `target_vocab`, dst.) selalu divalidasi dengan `zod` saat dibaca dari DB di lapisan repo, sehingga UI menerima tipe yang pasti.
+
+**Layar Progres** dihitung dengan query agregat di `db/repos/stats` (tanpa tabel tambahan):
+- level: `learner_profile.cefr_level`
+- unit selesai/total: `COUNT(*)` `curriculum_units` dengan `status = 'done'` / semua unit
+- skor per sesi: `sessions.score_*` untuk sesi yang punya `report_json`, urut `started_at`
+- total menit telepon: `SUM(duration_sec) / 60` dari `sessions`
+- jumlah kosakata: `COUNT(*)` `vocabulary`
+- kesalahan tersering: `mistakes` dikelompokkan per `pattern_key`, 5 teratas, beserta satu contoh terbaru
+
+**Web:** database disimpan oleh `expo-sqlite` versi WebAssembly di penyimpanan browser (per origin). Data `localhost:8081` dan URL Vercel **terpisah**, begitu juga data APK. Menghapus data situs di browser menghapus progres; ekspor/impor cadangan (file JSON) dikerjakan di Fase 6c.
 
 ## 9. Penyusunan System Prompt Telepon
 
