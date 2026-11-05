@@ -120,11 +120,11 @@ export class LiveClient {
         const wasReady = this.ready;
         this.ready = false;
         this.socket = null;
-        if (!wasReady) {
-          fail(new LiveError('closed_before_setup', 'Connection closed before setup completed', ev.code, ev.reason));
-        }
-        if (!this.closedByClient || wasReady) {
+        if (wasReady) {
           this.emit({ type: 'close', code: ev.code, reason: ev.reason });
+        } else {
+          // Before setup, failures are reported only through the connect() rejection.
+          fail(new LiveError('closed_before_setup', 'Connection closed before setup completed', ev.code, ev.reason));
         }
       };
     });

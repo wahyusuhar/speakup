@@ -107,7 +107,7 @@ describe('LiveClient', () => {
   });
 
   it('rejects without leaking the key when closed before setup', async () => {
-    const { client, getSocket } = setup();
+    const { client, events, getSocket } = setup();
     const connecting = client.connect();
     const s = getSocket();
     s.open();
@@ -120,6 +120,8 @@ describe('LiveClient', () => {
     expect(le.closeCode).toBe(1008);
     expect(le.closeReason).toBe('API key not valid');
     expect(`${le.message} ${le.stack ?? ''}`).not.toContain(SECRET_KEY);
+    // No separate close event: the rejection is the single failure signal.
+    expect(events).toEqual([]);
   });
 
   it('times out when setupComplete never arrives', async () => {
