@@ -18,12 +18,12 @@ Tanda: `[ ]` belum, `[x]` selesai. Perbarui file ini setiap tugas selesai.
 
 ## Fase 1 — Kerangka Proyek
 
-- [ ] Inisialisasi Expo + TypeScript + `expo-router`.
-- [ ] Pasang `expo-dev-client`, `expo-sqlite`, `expo-secure-store`, `zustand`, `buffer`, `react-native-audio-api`.
-- [ ] Konfigurasi izin `RECORD_AUDIO` di `app.json`.
-- [ ] Buat struktur folder sesuai `ARCHITECTURE.md §3` (file kosong/stub).
-- [ ] `src/config/models.ts` berisi nama model Live, model teks, voice default, durasi telepon default.
-- [ ] Build lokal dan jalankan di HP: layar "Hello SpeakUp".
+- [x] Inisialisasi Expo + TypeScript + `expo-router`.
+- [x] Pasang `expo-dev-client`, `expo-sqlite`, `expo-secure-store`, `zustand`, `buffer`, `react-native-audio-api`.
+- [x] Konfigurasi izin `RECORD_AUDIO` di `app.json`.
+- [x] Buat struktur folder sesuai `ARCHITECTURE.md §3` (file kosong/stub).
+- [x] `src/config/models.ts` berisi nama model Live, model teks, voice default, durasi telepon default.
+- [ ] Build lokal dan jalankan di HP: layar "Hello SpeakUp". _(menunggu Android Studio/JDK terpasang)_
 
 **Selesai jika:** `npx expo run:android` berhasil memasang dev build di HP.
 
@@ -126,4 +126,7 @@ Target: bisa ngobrol suara dengan Gemini Live dari HP. Belum ada database, belum
 
 _Isi selama pengerjaan: latensi, perilaku gema, model yang dipakai, batas kuota yang ditemui, dll._
 
--
+- **Fase 1 (2026-11-05):** Expo SDK 58, React Native 0.88, TypeScript 6. Model dari dokumentasi resmi: Live `gemini-3.8-live`, teks `gemini-3.8-flash` (fallback `gemini-3.5-flash-lite`), voice `Kore`.
+- TypeScript 6 tidak lagi otomatis memuat `@types/*`, jadi `tsconfig.json` diberi `"types": ["jest"]`.
+- `react-dom` tetap dibutuhkan sebagai peer dependency `expo-router` walau app hanya Android.
+- `expo prebuild` sukses: manifest berisi `RECORD_AUDIO` + `MODIFY_AUDIO_SETTINGS`, `minSdkVersion=29`, tanpa foreground service.

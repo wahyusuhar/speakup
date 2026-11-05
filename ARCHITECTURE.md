@@ -7,6 +7,8 @@ Dokumen ini menjelaskan *bagaimana* aplikasi dibangun. *Apa* yang dibangun ada d
 > - https://ai.google.dev/gemini-api/docs/pricing (pastikan model berlabel *Free of charge* di kolom Free Tier)
 > - https://ai.google.dev/gemini-api/docs/rate-limits
 >
+> Per 5 November 2026, URL `ai.google.dev/gemini-api/docs/*` dialihkan (301) ke `aistudio.google.com/docs/*` dengan isi yang sama. Angka kuota free tier tidak tercantum di halaman rate-limits; lihat di https://aistudio.google.com/rate-limit.
+>
 > Jangan menebak nama model atau nama field dari ingatan. Semua nama model disimpan di `src/config/models.ts`.
 
 ---
@@ -31,7 +33,8 @@ Dokumen ini menjelaskan *bagaimana* aplikasi dibangun. *Apa* yang dibangun ada d
 | Database | `expo-sqlite` | Lokal, gratis |
 | Penyimpanan rahasia | `expo-secure-store` | Untuk API key |
 | Audio (rekam + putar) | `react-native-audio-api` (Software Mansion) | API mirip Web Audio: `AudioRecorder` untuk frame PCM, `AudioContext` untuk pemutaran terjadwal tanpa jeda |
-| Izin mikrofon | `react-native-permissions` atau API izin bawaan library audio | Android `RECORD_AUDIO` |
+| Izin mikrofon | API izin bawaan library audio | Android `RECORD_AUDIO` + `MODIFY_AUDIO_SETTINGS`, didaftarkan lewat config plugin `react-native-audio-api` di `app.json`. Foreground service bawaan plugin dimatikan (telepon selalu di depan layar); jika nanti butuh mic di latar, tipe service harus `microphone`, bukan `mediaPlayback` |
+| Konfigurasi native | `expo-build-properties` | `minSdkVersion` 29 (Android 10+). Folder `android/` dihasilkan prebuild (CNG), tidak di-commit |
 | Encoding | `buffer` (polyfill) | Base64 untuk PCM |
 | Validasi | `zod` | Validasi respons model AI & pesan server |
 | Layar menyala | `expo-keep-awake` | Layar tidak mati selama telepon |
@@ -150,7 +153,7 @@ Pesan `setup` pertama (nama field **wajib dicek ulang** dengan referensi API ter
 }
 ```
 
-- **Model:** pilih model Live yang di halaman pricing tertulis gratis di kolom Free Tier (per November 2026 contohnya keluarga `gemini-3.x-flash-live-preview` / `gemini-2.5-flash-native-audio-preview-*`). Simpan di config, jangan hardcode di banyak tempat.
+- **Model:** pilih model Live yang di halaman pricing tertulis gratis di kolom Free Tier. Dicek 5 November 2026: `gemini-3.8-live` adalah model default Live API (gratis, dipakai di semua contoh resmi); `gemini-3.1-flash-live-preview` sudah berlabel *legacy*. Model teks: `gemini-3.8-flash` dengan fallback `gemini-3.5-flash-lite` saat kuota habis. Voice default di contoh resmi: `Kore`. Semua nilai ini hanya ada di `src/config/models.ts`.
 - **Deteksi suara (VAD):** pakai deteksi otomatis bawaan dulu. Jika guru terlalu cepat memotong saat murid berpikir, atur sensitivitas akhir bicara di `realtimeInputConfig.automaticActivityDetection` — pemula butuh jeda lebih panjang.
 - **Durasi:** sesi audio punya batas durasi; `contextWindowCompression` + `sessionResumption` dipakai agar telepon 15–20 menit tidak terputus. Default timer telepon di app: 15 menit, dengan peringatan di menit 13.
 
