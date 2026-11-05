@@ -18,6 +18,9 @@ export default function HomeScreen() {
       <Link href="/call/free" style={[styles.button, styles.primary]}>
         Telepon Guru
       </Link>
+      <Link href="/history" style={[styles.button, styles.secondary]}>
+        Riwayat Telepon
+      </Link>
       <Link href="/onboarding" style={[styles.button, styles.secondary]}>
         Ubah Profil
       </Link>
