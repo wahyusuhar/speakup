@@ -86,16 +86,30 @@ Urutan: **web dulu** (2a), versi `.native.ts` baru dikerjakan setelah versi web 
 - [x] Simpan setiap sesi telepon + transkrip ke DB (juga saat sambungan terputus).
 - [x] Durasi telepon dibatasi ≤ 9 menit lewat config selama Fase 3 ditunda (peringatan di menit 8).
 - [x] Layar Riwayat minimal (daftar sesi + transkrip) agar kriteria di bawah bisa diperiksa.
+- [x] Uji manual oleh Mas Wahyu (langkah di *Catatan Hasil Uji*).
+
+**Selesai jika:** setelah tab browser ditutup dan dibuka lagi, data profil dan riwayat transkrip masih ada. ✅ (web lokal)
+
+---
+
+## Fase 4b — Guru Menuntun Pemula (ditambah 2026-11-05)
+
+- [x] `PROMPTS.md`: Blok Bersama (aturan bahasa per level `full/high/low/none`, latihan tirukan, isyarat waktu), `starterCall` menggantikan `prototypeCall`, `tutorCall` memakai blok yang sama, placement terpandu untuk "Hampir nol" (§2b).
+- [x] `PRD.md` F2/F3 diperbarui.
+- [x] `src/config/starterLessons.ts`: pelajaran bawaan (salam → sopan santun → angka → kegiatan sehari-hari, bergiliran; percakapan rutinitas untuk menengah ke atas).
+- [x] `src/prompts/blocks.ts` + `starterCall.ts` + unit test (termasuk cek sinkron dengan `PROMPTS.md`).
+- [x] Telepon memakai level, sapaan, dan menit per hari dari profil; durasi rencana `min(menit per hari, 8)`.
+- [x] Isyarat waktu satu menit sebelum durasi rencana, dikirim saat guru diam (maks tunggu 30 detik).
 - [ ] Uji manual oleh Mas Wahyu (langkah di *Catatan Hasil Uji*).
 
-**Selesai jika:** setelah tab browser ditutup dan dibuka lagi, data profil dan riwayat transkrip masih ada.
+**Selesai jika:** dengan profil "Hampir nol", guru berbicara bahasa Indonesia kecuali pada item yang dipelajari, menjalankan pembukaan → agenda → bagian → penutup, dan melatih tiap item dengan latihan tirukan (maks 3 percobaan).
 
 ---
 
 ## Fase 5 — Placement, Kurikulum & Layar Materi
 
 - [ ] `ai/textModel.ts`: wrapper `generateContent` + JSON schema + validasi `zod` + retry sekali (+ fallback model saat 429).
-- [ ] Prompt `placementCall` di mode telepon `placement`.
+- [ ] Prompt `placementCall` di mode telepon `placement`. Untuk "Hampir nol": pilihan **"Langsung mulai dari A1"** (utama, tanpa telepon) atau **"Cek singkat 3 menit"** (`placementCallGuided`, `PROMPTS.md §2b`).
 - [ ] `placement()` → simpan level, kekuatan, kelemahan, minat, porsi bahasa Indonesia.
 - [ ] Layar hasil placement (bahasa Indonesia).
 - [ ] `planCurriculum()` mode `initial` → simpan unit **beserta materi** (arti kosakata, contoh kalimat, penjelasan grammar, skenario bahasa Indonesia).
@@ -204,4 +218,6 @@ _Isi selama pengerjaan: latensi, perilaku gema, model yang dipakai, batas kuota 
 - **Temuan header dev server:** header dari `metro.config.js` hanya terpasang di bundle JS, **bukan** di dokumen HTML, jadi `crossOriginIsolated` lokal sebelumnya `false`. Ditambah opsi `headers` di plugin `expo-router` (`app.json`): sekarang semua rute dev **kecuali `/`** terisolasi. Vercel tidak terpengaruh (header dari `vercel.json` di semua path).
 - **Temuan expo-sqlite web:** DB terbuka dan data bertahan setelah reload baik dengan maupun tanpa `crossOriginIsolated` (diuji lewat `/` dan `/onboarding`). Header tetap dipasang sesuai dokumentasi.
 - **Catatan uji headless:** `--virtual-time-budget` Edge membuat inisialisasi expo-sqlite (worker) tampak macet; pakai waktu nyata. Menjalankan banyak Edge headless sekaligus pernah membuat dev server kehabisan memori (exit 134).
+- **Uji Fase 4 web lokal (2026-11-05, Mas Wahyu):** onboarding tersimpan, guru menyapa "Mas Wahyu", gelembung transkrip tampil, "Percakapan tersimpan" muncul. Masukan: dengan kemampuan "hampir nol" guru langsung berbahasa Inggris → Fase 4b.
+- **Fase 4b (kode, 2026-11-05):** dokumentasi Live API (capabilities, reference): `clientContent` boleh dikirim sepanjang sesi untuk `gemini-3.8-live`, tetapi `turnComplete: true` **memotong** generasi guru yang sedang berjalan. Karena itu isyarat waktu ditahan sampai guru diam (pemutar audio kosong dan tidak ada transkrip guru yang belum selesai), maksimal 30 detik. Model native audio memilih bahasa sendiri (tidak ada `languageCode`); bahasa diatur lewat system instruction.
 - **Perubahan urutan:** uji build APK (`eas build -p android --profile preview`) ditunda dari Fase 1 ke akhir Fase 2 (2c) untuk menghemat jatah EAS Build free plan.
