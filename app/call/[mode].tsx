@@ -1,7 +1,8 @@
 import { Link, useLocalSearchParams } from 'expo-router';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useRef } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
 
-import { useLiveCall, type CallError, type CallStatus } from '@/live/useLiveCall';
+import { useLiveCall, type CallError, type CallStatus, type TranscriptTurn } from '@/live/useLiveCall';
 
 // Minimal call screen (Phase 2). mode: placement | lesson | free
 // Phase 2 uses the temporary prototype prompt for every mode.
@@ -36,49 +37,84 @@ function formatTime(sec: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
+function Bubble({ turn, live = false }: { turn: TranscriptTurn; live?: boolean }) {
+  const isUser = turn.speaker === 'user';
+  return (
+    <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleTutor, live && styles.bubbleLive]}>
+      <Text style={styles.bubbleSpeaker}>
+        {isUser ? 'Kamu' : 'Miss Rina'}
+        {turn.interrupted ? ' · terpotong' : ''}
+        {live ? ' · …' : ''}
+      </Text>
+      <Text style={styles.bubbleText}>{turn.text}</Text>
+    </View>
+  );
+}
+
 export default function CallScreen() {
   const { mode } = useLocalSearchParams<{ mode: string }>();
-  const { status, tutorSpeaking, elapsedSec, error, start, hangUp } = useLiveCall();
+  const { status, tutorSpeaking, elapsedSec, error, transcript, liveText, start, hangUp } = useLiveCall();
   const inCall = status === 'connecting' || status === 'active';
+  const scrollRef = useRef<ScrollViewInstance>(null);
+
+  const liveUser = liveText.user.trim();
+  const liveTutor = liveText.tutor.trim();
+  const hasText = transcript.length > 0 || liveUser !== '' || liveTutor !== '';
 
   return (
     <View style={styles.container}>
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>R</Text>
-      </View>
-      <Text style={styles.name}>Miss Rina</Text>
-      <Text style={styles.mode}>Mode: {mode ?? '-'}</Text>
-
-      <Text style={styles.status}>{statusText(status, tutorSpeaking)}</Text>
-      <Text style={styles.timer}>{formatTime(elapsedSec)}</Text>
-
-      {error ? (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{ERROR_TEXT[error.code]}</Text>
-          {error.detail ? <Text style={styles.errorDetail}>Detail: {error.detail}</Text> : null}
-          {error.code === 'no_api_key' ? (
-            <Link href="/onboarding/api-key" style={styles.link}>
-              Atur API key
-            </Link>
-          ) : null}
+      <View style={styles.header}>
+        <View style={styles.avatar}>
+          <Text style={styles.avatarText}>R</Text>
         </View>
-      ) : null}
+        <Text style={styles.name}>Miss Rina</Text>
+        <Text style={styles.mode}>Mode: {mode ?? '-'}</Text>
+        <Text style={styles.status}>{statusText(status, tutorSpeaking)}</Text>
+        <Text style={styles.timer}>{formatTime(elapsedSec)}</Text>
 
-      <Pressable
-        onPress={inCall ? hangUp : start}
-        style={[styles.callButton, inCall ? styles.hangUp : styles.call]}
-        accessibilityRole="button"
-      >
-        <Text style={styles.callButtonText}>{inCall ? 'Tutup' : 'Telepon'}</Text>
-      </Pressable>
+        {error ? (
+          <View style={styles.errorBox}>
+            <Text style={styles.errorText}>{ERROR_TEXT[error.code]}</Text>
+            {error.detail ? <Text style={styles.errorDetail}>Detail: {error.detail}</Text> : null}
+            {error.code === 'no_api_key' ? (
+              <Link href="/onboarding/api-key" style={styles.link}>
+                Atur API key
+              </Link>
+            ) : null}
+          </View>
+        ) : null}
 
-      <Text style={styles.tip}>Tips: pakai earphone agar suara guru tidak terekam ulang oleh mikrofon.</Text>
+        <Pressable
+          onPress={inCall ? hangUp : start}
+          style={[styles.callButton, inCall ? styles.hangUp : styles.call]}
+          accessibilityRole="button"
+        >
+          <Text style={styles.callButtonText}>{inCall ? 'Tutup' : 'Telepon'}</Text>
+        </Pressable>
+        {!inCall ? (
+          <Link href="/" style={styles.link}>
+            Kembali ke beranda
+          </Link>
+        ) : null}
+      </View>
 
-      {!inCall ? (
-        <Link href="/" style={styles.link}>
-          Kembali ke beranda
-        </Link>
-      ) : null}
+      <View style={styles.transcriptPanel}>
+        <Text style={styles.transcriptTitle}>Teks percakapan</Text>
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={styles.transcriptContent}
+          onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: true })}
+        >
+          {hasText ? null : (
+            <Text style={styles.placeholder}>Teks percakapan akan muncul di sini selama telepon.</Text>
+          )}
+          {transcript.map((turn, i) => (
+            <Bubble key={i} turn={turn} />
+          ))}
+          {liveUser ? <Bubble turn={{ speaker: 'user', text: liveUser }} live /> : null}
+          {liveTutor ? <Bubble turn={{ speaker: 'tutor', text: liveTutor }} live /> : null}
+        </ScrollView>
+      </View>
     </View>
   );
 }
@@ -86,46 +122,56 @@ export default function CallScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
     backgroundColor: '#0F172A',
-    padding: 24,
-    gap: 8,
+    padding: 16,
+    gap: 12,
+    alignItems: 'center',
   },
+  header: { alignItems: 'center', gap: 4, paddingTop: 16 },
   avatar: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     backgroundColor: '#334155',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  avatarText: { color: '#FFFFFF', fontSize: 40, fontWeight: '700' },
-  name: { color: '#FFFFFF', fontSize: 24, fontWeight: '700' },
-  mode: { color: '#94A3B8', fontSize: 13 },
-  status: { color: '#E2E8F0', fontSize: 18, marginTop: 16 },
-  timer: { color: '#FFFFFF', fontSize: 40, fontVariant: ['tabular-nums'], marginBottom: 16 },
-  errorBox: {
-    backgroundColor: '#7F1D1D',
-    borderRadius: 8,
-    padding: 12,
-    maxWidth: 420,
-    gap: 4,
-  },
+  avatarText: { color: '#FFFFFF', fontSize: 30, fontWeight: '700' },
+  name: { color: '#FFFFFF', fontSize: 22, fontWeight: '700' },
+  mode: { color: '#94A3B8', fontSize: 12 },
+  status: { color: '#E2E8F0', fontSize: 16, marginTop: 8 },
+  timer: { color: '#FFFFFF', fontSize: 32, fontVariant: ['tabular-nums'] },
+  errorBox: { backgroundColor: '#7F1D1D', borderRadius: 8, padding: 12, maxWidth: 420, gap: 4, marginTop: 8 },
   errorText: { color: '#FFFFFF', fontSize: 15 },
   errorDetail: { color: '#FECACA', fontSize: 12 },
   callButton: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 24,
+    marginTop: 12,
   },
   call: { backgroundColor: '#16A34A' },
   hangUp: { backgroundColor: '#DC2626' },
-  callButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
-  tip: { color: '#94A3B8', fontSize: 13, textAlign: 'center', marginTop: 24, maxWidth: 360 },
-  link: { color: '#93C5FD', fontSize: 15, marginTop: 8 },
+  callButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '700' },
+  link: { color: '#93C5FD', fontSize: 14, marginTop: 8 },
+  transcriptPanel: {
+    flex: 1,
+    width: '100%',
+    maxWidth: 640,
+    backgroundColor: '#1E293B',
+    borderRadius: 12,
+    padding: 12,
+  },
+  transcriptTitle: { color: '#94A3B8', fontSize: 12, marginBottom: 8 },
+  transcriptContent: { gap: 8, paddingBottom: 8 },
+  placeholder: { color: '#64748B', fontSize: 14 },
+  bubble: { borderRadius: 10, padding: 10, maxWidth: '90%' },
+  bubbleUser: { alignSelf: 'flex-end', backgroundColor: '#1D4ED8' },
+  bubbleTutor: { alignSelf: 'flex-start', backgroundColor: '#334155' },
+  bubbleLive: { opacity: 0.7 },
+  bubbleSpeaker: { color: '#CBD5E1', fontSize: 11, marginBottom: 2 },
+  bubbleText: { color: '#FFFFFF', fontSize: 15, lineHeight: 21 },
 });
