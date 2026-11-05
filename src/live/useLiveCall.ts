@@ -1,15 +1,17 @@
-// Minimal call hook for the Phase 2 prototype. Phase 3 extends it into the full
-// state machine (ARCHITECTURE.md §4): mute, timeout, resumption, error handling.
+// Call hook. Phase 3 extends it into the full state machine (ARCHITECTURE.md §4):
+// mute, reconnect/resumption, richer error handling.
 // Platform-independent: audio comes from @/audio, storage from @/storage.
+// Does not know about the database: finished calls are reported through onCallEnded.
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { createMicStreamer } from '@/audio/MicStreamer';
 import { createPcmPlayer } from '@/audio/PcmPlayer';
 import { AudioError, type MicStreamer, type PcmPlayer } from '@/audio/types';
-import { DEFAULT_VOICE, LIVE_MODEL } from '@/config/models';
-import { CALL_START_CUE, PROTOTYPE_ADDRESS_AS, buildPrototypePrompt } from '@/prompts/prototypeCall';
+import { CALL_DURATION_MIN, DEFAULT_VOICE, LIVE_MODEL } from '@/config/models';
+import { CALL_START_CUE } from '@/prompts/prototypeCall';
 import { apiKeyStore } from '@/storage/apiKeyStore';
 
+import { buildCallEndRecord, endReasonForClose, type CallEndReason, type CallEndRecord } from './callRecord';
 import { LiveClient } from './LiveClient';
 import { LiveError, type LiveClientEvent } from './types';
 
@@ -27,12 +29,25 @@ export type CallError = { code: CallErrorCode; detail?: string };
 
 export type TranscriptTurn = { speaker: 'user' | 'tutor'; text: string; interrupted?: boolean };
 
+export type { CallEndRecord } from './callRecord';
+
+export type UseLiveCallOptions = {
+  /** Called once for every call that became active, however it ended. */
+  onCallEnded?: (record: CallEndRecord) => void;
+};
+
+export type StartCallOptions = {
+  systemInstruction: string;
+};
+
 type Session = {
   client: LiveClient;
   mic: MicStreamer;
   player: PcmPlayer;
   unsubscribe: () => void;
 };
+
+const MAX_CALL_SEC = CALL_DURATION_MIN * 60;
 
 function audioErrorToCallError(e: unknown): CallError {
   if (e instanceof AudioError) {
@@ -51,7 +66,7 @@ function liveErrorDetail(e: unknown): string | undefined {
   return undefined;
 }
 
-export function useLiveCall() {
+export function useLiveCall(options: UseLiveCallOptions = {}) {
   const [status, setStatus] = useState<CallStatus>('idle');
   const [tutorSpeaking, setTutorSpeaking] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
@@ -63,9 +78,16 @@ export function useLiveCall() {
 
   const sessionRef = useRef<Session | null>(null);
   const endingRef = useRef(false);
+  /** Set when the call becomes active; 0 means "never became active". */
   const startedAtRef = useRef(0);
+  const reportedRef = useRef(false);
   const transcriptRef = useRef<TranscriptTurn[]>([]);
   const pendingRef = useRef({ user: '', tutor: '' });
+
+  const onCallEndedRef = useRef(options.onCallEnded);
+  useEffect(() => {
+    onCallEndedRef.current = options.onCallEnded;
+  });
 
   const commitTurn = useCallback((speaker: 'user' | 'tutor', interrupted = false) => {
     const text = pendingRef.current[speaker].trim();
@@ -75,7 +97,6 @@ export function useLiveCall() {
     const turn: TranscriptTurn = { speaker, text, interrupted };
     transcriptRef.current.push(turn);
     setTranscript((t) => [...t, turn]);
-    // Also logged for debugging; saved to the DB in Phase 4.
     console.log(`[transcript] ${speaker}${interrupted ? ' (terpotong)' : ''}: ${text}`);
   }, []);
 
@@ -91,15 +112,39 @@ export function useLiveCall() {
     commitTurn('tutor');
   }, [commitTurn]);
 
+  /** Reports the call exactly once, and only if it ever became active. */
+  const reportEnd = useCallback((reason: CallEndReason) => {
+    if (reportedRef.current || startedAtRef.current === 0) return;
+    reportedRef.current = true;
+    const record = buildCallEndRecord(startedAtRef.current, Date.now(), reason, transcriptRef.current);
+    try {
+      onCallEndedRef.current?.(record);
+    } catch (e) {
+      console.warn('[call] onCallEnded failed', e);
+    }
+  }, []);
+
   const fail = useCallback(
-    async (err: CallError) => {
+    async (err: CallError, reason: CallEndReason = 'error') => {
       endingRef.current = true;
       await teardown();
+      reportEnd(reason);
       setTutorSpeaking(false);
       setError(err);
       setStatus('error');
     },
-    [teardown],
+    [teardown, reportEnd],
+  );
+
+  const endCall = useCallback(
+    async (reason: CallEndReason) => {
+      endingRef.current = true;
+      await teardown();
+      reportEnd(reason);
+      setTutorSpeaking(false);
+      setStatus((s) => (s === 'error' ? s : 'ended'));
+    },
+    [teardown, reportEnd],
   );
 
   const handleEvent = useCallback(
@@ -135,7 +180,10 @@ export function useLiveCall() {
           break;
         case 'close':
           if (!endingRef.current) {
-            void fail({ code: 'connection_lost', detail: [event.code, event.reason].filter(Boolean).join(' · ') });
+            void fail(
+              { code: 'connection_lost', detail: [event.code, event.reason].filter(Boolean).join(' · ') },
+              endReasonForClose(event.reason),
+            );
           }
           break;
         default:
@@ -145,92 +193,90 @@ export function useLiveCall() {
     [commitTurn, fail],
   );
 
-  const start = useCallback(async () => {
-    if (sessionRef.current) return;
-    endingRef.current = false;
-    transcriptRef.current = [];
-    pendingRef.current = { user: '', tutor: '' };
-    setTranscript([]);
-    setLiveText({ user: '', tutor: '' });
-    setError(null);
-    setElapsedSec(0);
-    setTutorSpeaking(false);
-    setStatus('connecting');
+  const start = useCallback(
+    async ({ systemInstruction }: StartCallOptions) => {
+      if (sessionRef.current) return;
+      endingRef.current = false;
+      startedAtRef.current = 0;
+      reportedRef.current = false;
+      transcriptRef.current = [];
+      pendingRef.current = { user: '', tutor: '' };
+      setTranscript([]);
+      setLiveText({ user: '', tutor: '' });
+      setError(null);
+      setElapsedSec(0);
+      setTutorSpeaking(false);
+      setStatus('connecting');
 
-    // Start audio output first, while we are still inside the user's tap.
-    const player = createPcmPlayer({ onPlayingChange: setTutorSpeaking });
-    try {
-      await player.start();
-    } catch (e) {
-      await player.close().catch(() => undefined);
-      return fail(audioErrorToCallError(e));
-    }
+      // Start audio output first, while we are still inside the user's tap.
+      const player = createPcmPlayer({ onPlayingChange: setTutorSpeaking });
+      try {
+        await player.start();
+      } catch (e) {
+        await player.close().catch(() => undefined);
+        return fail(audioErrorToCallError(e));
+      }
 
-    const apiKey = await apiKeyStore.getApiKey().catch(() => null);
-    if (!apiKey) {
-      await player.close().catch(() => undefined);
-      return fail({ code: 'no_api_key' });
-    }
-    if (endingRef.current) {
-      await player.close().catch(() => undefined);
-      return;
-    }
+      const apiKey = await apiKeyStore.getApiKey().catch(() => null);
+      if (!apiKey) {
+        await player.close().catch(() => undefined);
+        return fail({ code: 'no_api_key' });
+      }
+      if (endingRef.current) {
+        await player.close().catch(() => undefined);
+        return;
+      }
 
-    const client = new LiveClient({
-      apiKey,
-      model: LIVE_MODEL,
-      voiceName: DEFAULT_VOICE,
-      systemInstruction: buildPrototypePrompt(PROTOTYPE_ADDRESS_AS),
-    });
-    const mic = createMicStreamer();
-    const unsubscribe = client.on(handleEvent);
-    sessionRef.current = { client, mic, player, unsubscribe };
+      const client = new LiveClient({ apiKey, model: LIVE_MODEL, voiceName: DEFAULT_VOICE, systemInstruction });
+      const mic = createMicStreamer();
+      const unsubscribe = client.on(handleEvent);
+      sessionRef.current = { client, mic, player, unsubscribe };
 
-    try {
-      await client.connect();
-    } catch (e) {
-      if (endingRef.current) return; // user hung up while connecting
-      return fail({ code: 'connect_failed', detail: liveErrorDetail(e) });
-    }
-    if (endingRef.current) return;
-
-    client.sendText(CALL_START_CUE);
-
-    try {
-      await mic.start((chunk) => client.sendAudio(chunk));
-    } catch (e) {
+      try {
+        await client.connect();
+      } catch (e) {
+        if (endingRef.current) return; // user hung up while connecting
+        return fail({ code: 'connect_failed', detail: liveErrorDetail(e) });
+      }
       if (endingRef.current) return;
-      return fail(audioErrorToCallError(e));
-    }
-    if (endingRef.current) return;
 
-    startedAtRef.current = Date.now();
-    setStatus('active');
-  }, [fail, handleEvent]);
+      client.sendText(CALL_START_CUE);
 
-  const hangUp = useCallback(async () => {
-    endingRef.current = true;
-    await teardown();
-    setTutorSpeaking(false);
-    setStatus((s) => (s === 'error' ? s : 'ended'));
-  }, [teardown]);
+      try {
+        await mic.start((chunk) => client.sendAudio(chunk));
+      } catch (e) {
+        if (endingRef.current) return;
+        return fail(audioErrorToCallError(e));
+      }
+      if (endingRef.current) return;
 
-  // Call timer.
+      startedAtRef.current = Date.now();
+      setStatus('active');
+    },
+    [fail, handleEvent],
+  );
+
+  const hangUp = useCallback(() => endCall('user_hangup'), [endCall]);
+
+  // Call timer + automatic end at CALL_DURATION_MIN.
   useEffect(() => {
     if (status !== 'active') return;
     const id = setInterval(() => {
-      setElapsedSec(Math.floor((Date.now() - startedAtRef.current) / 1000));
+      const sec = Math.floor((Date.now() - startedAtRef.current) / 1000);
+      setElapsedSec(sec);
+      if (sec >= MAX_CALL_SEC && !endingRef.current) void endCall('timeout');
     }, 1000);
     return () => clearInterval(id);
-  }, [status]);
+  }, [status, endCall]);
 
-  // Release mic/socket/audio if the screen unmounts mid-call.
+  // Release mic/socket/audio (and still report the call) if the screen unmounts mid-call.
   useEffect(
     () => () => {
+      if (endingRef.current) return;
       endingRef.current = true;
-      void teardown();
+      void teardown().then(() => reportEnd('user_hangup'));
     },
-    [teardown],
+    [teardown, reportEnd],
   );
 
   return { status, tutorSpeaking, elapsedSec, error, transcript, liveText, start, hangUp };

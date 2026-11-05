@@ -19,11 +19,15 @@ export const TEXT_MODEL_FALLBACK = 'gemini-3.5-flash-lite';
 /** Default prebuilt voice for the tutor (list: https://aistudio.google.com/docs/speech-generation). */
 export const DEFAULT_VOICE = 'Kore';
 
-/** Default call length; the call ends automatically after this. */
-export const CALL_DURATION_MIN = 15;
+/**
+ * Call length; the call ends automatically after this.
+ * Temporarily 9 minutes: one Live connection lasts ~10 minutes and reconnect/resumption
+ * is deferred to Phase 3. Phase 3 restores 15 (warning at 13).
+ */
+export const CALL_DURATION_MIN = 9;
 
 /** Show the "call is ending soon" warning at this minute. */
-export const CALL_WARNING_MIN = 13;
+export const CALL_WARNING_MIN = 8;
 
 /** Calls shorter than this are not analyzed (ARCHITECTURE.md §10). */
 export const MIN_ANALYZABLE_CALL_SEC = 30;

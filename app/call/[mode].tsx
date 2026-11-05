@@ -1,11 +1,28 @@
-import { Link, useLocalSearchParams } from 'expo-router';
-import { useRef } from 'react';
+import { Link, Redirect, useLocalSearchParams } from 'expo-router';
+import { useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
 
-import { useLiveCall, type CallError, type CallStatus, type TranscriptTurn } from '@/live/useLiveCall';
+import { CALL_DURATION_MIN, CALL_WARNING_MIN } from '@/config/models';
+import { getDb } from '@/db/client';
+import { SESSION_MODES, saveCallSession, type SessionMode } from '@/db/repos/sessions';
+import {
+  useLiveCall,
+  type CallEndRecord,
+  type CallError,
+  type CallStatus,
+  type TranscriptTurn,
+} from '@/live/useLiveCall';
+import { buildPrototypePrompt } from '@/prompts/prototypeCall';
+import { useProfileStore } from '@/store/profileStore';
 
-// Minimal call screen (Phase 2). mode: placement | lesson | free
-// Phase 2 uses the temporary prototype prompt for every mode.
+// Call screen. mode: placement | lesson | free
+// Until Phase 5/6 every mode uses the temporary prototype prompt.
+
+type SaveState = 'idle' | 'saving' | 'saved' | 'failed';
+
+function toMode(value: string | undefined): SessionMode {
+  return SESSION_MODES.find((m) => m === value) ?? 'free';
+}
 
 const ERROR_TEXT: Record<CallError['code'], string> = {
   no_api_key: 'API key belum diatur.',
@@ -52,14 +69,40 @@ function Bubble({ turn, live = false }: { turn: TranscriptTurn; live?: boolean }
 }
 
 export default function CallScreen() {
-  const { mode } = useLocalSearchParams<{ mode: string }>();
-  const { status, tutorSpeaking, elapsedSec, error, transcript, liveText, start, hangUp } = useLiveCall();
+  const params = useLocalSearchParams<{ mode: string }>();
+  const mode = toMode(params.mode);
+  const profile = useProfileStore((s) => s.profile);
+  const [saveState, setSaveState] = useState<SaveState>('idle');
+
+  const onCallEnded = (record: CallEndRecord) => {
+    setSaveState('saving');
+    getDb()
+      .then((db) => saveCallSession(db, { ...record, mode, unitId: null }))
+      .then(() => setSaveState('saved'))
+      .catch((e: unknown) => {
+        console.warn('[call] failed to save session', e);
+        setSaveState('failed');
+      });
+  };
+
+  const { status, tutorSpeaking, elapsedSec, error, transcript, liveText, start, hangUp } = useLiveCall({
+    onCallEnded,
+  });
   const inCall = status === 'connecting' || status === 'active';
   const scrollRef = useRef<ScrollViewInstance>(null);
+
+  if (!profile) return <Redirect href="/onboarding" />;
+
+  const startCall = () => {
+    setSaveState('idle');
+    void start({ systemInstruction: buildPrototypePrompt(profile.addressAs) });
+  };
 
   const liveUser = liveText.user.trim();
   const liveTutor = liveText.tutor.trim();
   const hasText = transcript.length > 0 || liveUser !== '' || liveTutor !== '';
+  const remainingSec = CALL_DURATION_MIN * 60 - elapsedSec;
+  const showWarning = status === 'active' && elapsedSec >= CALL_WARNING_MIN * 60;
 
   return (
     <View style={styles.container}>
@@ -68,9 +111,17 @@ export default function CallScreen() {
           <Text style={styles.avatarText}>R</Text>
         </View>
         <Text style={styles.name}>Miss Rina</Text>
-        <Text style={styles.mode}>Mode: {mode ?? '-'}</Text>
+        <Text style={styles.mode}>Mode: {mode}</Text>
         <Text style={styles.status}>{statusText(status, tutorSpeaking)}</Text>
         <Text style={styles.timer}>{formatTime(elapsedSec)}</Text>
+        {showWarning ? (
+          <Text style={styles.warning}>Telepon berakhir otomatis dalam {formatTime(Math.max(0, remainingSec))}</Text>
+        ) : null}
+        {saveState === 'saving' ? <Text style={styles.saveNote}>Menyimpan percakapan…</Text> : null}
+        {saveState === 'saved' ? <Text style={styles.saveNote}>Percakapan tersimpan.</Text> : null}
+        {saveState === 'failed' ? (
+          <Text style={styles.saveFailed}>Gagal menyimpan percakapan di perangkat ini.</Text>
+        ) : null}
 
         {error ? (
           <View style={styles.errorBox}>
@@ -85,7 +136,7 @@ export default function CallScreen() {
         ) : null}
 
         <Pressable
-          onPress={inCall ? hangUp : start}
+          onPress={inCall ? hangUp : startCall}
           style={[styles.callButton, inCall ? styles.hangUp : styles.call]}
           accessibilityRole="button"
         >
@@ -142,6 +193,9 @@ const styles = StyleSheet.create({
   mode: { color: '#94A3B8', fontSize: 12 },
   status: { color: '#E2E8F0', fontSize: 16, marginTop: 8 },
   timer: { color: '#FFFFFF', fontSize: 32, fontVariant: ['tabular-nums'] },
+  warning: { color: '#FDE68A', fontSize: 14 },
+  saveNote: { color: '#86EFAC', fontSize: 13 },
+  saveFailed: { color: '#FCA5A5', fontSize: 13 },
   errorBox: { backgroundColor: '#7F1D1D', borderRadius: 8, padding: 12, maxWidth: 420, gap: 4, marginTop: 8 },
   errorText: { color: '#FFFFFF', fontSize: 15 },
   errorDetail: { color: '#FECACA', fontSize: 12 },
