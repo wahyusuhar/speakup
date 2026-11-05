@@ -78,13 +78,15 @@ Urutan: **web dulu** (2a), versi `.native.ts` baru dikerjakan setelah versi web 
 
 ## Fase 4 — Database & Onboarding (web)
 
-- [ ] `db/client.ts` + migrasi v1 (skema `ARCHITECTURE.md §8`, termasuk `address_as` dan kolom materi di `curriculum_units`); `expo-sqlite` web (wasm + header COEP/COOP sudah ada).
-- [ ] Repo + validasi `zod` untuk kolom JSON: profile, sessions, transcript_turns, curriculum, mistakes, vocabulary, settings. Unit test dengan DB in-memory.
-- [ ] Onboarding: sapaan (mis. "Mas Wahyu"), self-assessment, tujuan, menit per hari, peringatan privasi, API key.
-- [ ] Beranda mengarahkan ke onboarding jika profil belum ada.
-- [ ] Telepon memakai `address_as` dari profil (ganti konstanta sementara).
-- [ ] Simpan setiap sesi telepon + transkrip ke DB (juga saat sambungan terputus).
-- [ ] Durasi telepon dibatasi ≤ 9 menit lewat config selama Fase 3 ditunda (lihat batasan di atas).
+- [x] `db/client.ts` + migrasi v1 (skema `ARCHITECTURE.md §8`, termasuk `address_as` dan kolom materi di `curriculum_units`); `expo-sqlite` web (wasm + header COEP/COOP sudah ada).
+- [x] Repo + validasi `zod` untuk kolom JSON: profile, sessions, transcript_turns, curriculum, mistakes, vocabulary, settings. Unit test dengan DB in-memory (`node:sqlite`).
+- [x] Onboarding: sapaan (mis. "Mas Wahyu"), self-assessment, tujuan, menit per hari, peringatan privasi, API key.
+- [x] Beranda mengarahkan ke onboarding jika profil belum ada.
+- [x] Telepon memakai `address_as` dari profil (ganti konstanta sementara).
+- [x] Simpan setiap sesi telepon + transkrip ke DB (juga saat sambungan terputus).
+- [x] Durasi telepon dibatasi ≤ 9 menit lewat config selama Fase 3 ditunda (peringatan di menit 8).
+- [x] Layar Riwayat minimal (daftar sesi + transkrip) agar kriteria di bawah bisa diperiksa.
+- [ ] Uji manual oleh Mas Wahyu (langkah di *Catatan Hasil Uji*).
 
 **Selesai jika:** setelah tab browser ditutup dan dibuka lagi, data profil dan riwayat transkrip masih ada.
 
@@ -198,4 +200,8 @@ _Isi selama pengerjaan: latensi, perilaku gema, model yang dipakai, batas kuota 
 - **Uji Vercel (2026-11-05):** https://speakup-phi-one.vercel.app — import repo GitHub di dashboard, auto-deploy dari `main`. "Hello SpeakUp" tampil; refresh `/call/lesson` tidak 404 (rewrite SPA bekerja); `crossOriginIsolated` = `true` (header dari `vercel.json` terkirim).
 - **Fase 2a (kode, 2026-11-05):** belum diuji manual. Mic web memakai `AudioContext({ sampleRate: 16000 })` agar browser yang me-resample; jika browser menolak, jatuh ke sample rate perangkat + `StreamingResampler` di `pcm.ts`. Sapaan pembuka dipicu lewat `clientContent`. Koneksi Live hanya ~10 menit per WebSocket menurut dokumentasi → sambung ulang dengan `sessionResumption` wajib di Fase 3.
 - **Uji Fase 2a web lokal (2026-11-05, Edge, Windows, pakai speaker):** tersambung; timer berjalan; status berganti "Mendengarkan"/"Guru berbicara"; kualitas suara bagus; jeda jawaban baik; barge-in baik. Dengan speaker tanpa earphone tidak dilaporkan masalah gema. Masukan: guru diminta menyapa "Mas Wahyu" dan transkrip ditampilkan di layar → keduanya sudah diperbaiki.
+- **Fase 4 (kode, 2026-11-05):** DB, repo, onboarding, simpan sesi, riwayat minimal. Diverifikasi otomatis dengan Edge headless (DevTools Protocol): onboarding tersimpan dan profil masih ada setelah halaman dibuka ulang; layar telepon dan riwayat tampil. Telepon + penyimpanan transkrip belum diuji dengan suara asli.
+- **Temuan header dev server:** header dari `metro.config.js` hanya terpasang di bundle JS, **bukan** di dokumen HTML, jadi `crossOriginIsolated` lokal sebelumnya `false`. Ditambah opsi `headers` di plugin `expo-router` (`app.json`): sekarang semua rute dev **kecuali `/`** terisolasi. Vercel tidak terpengaruh (header dari `vercel.json` di semua path).
+- **Temuan expo-sqlite web:** DB terbuka dan data bertahan setelah reload baik dengan maupun tanpa `crossOriginIsolated` (diuji lewat `/` dan `/onboarding`). Header tetap dipasang sesuai dokumentasi.
+- **Catatan uji headless:** `--virtual-time-budget` Edge membuat inisialisasi expo-sqlite (worker) tampak macet; pakai waktu nyata. Menjalankan banyak Edge headless sekaligus pernah membuat dev server kehabisan memori (exit 134).
 - **Perubahan urutan:** uji build APK (`eas build -p android --profile preview`) ditunda dari Fase 1 ke akhir Fase 2 (2c) untuk menghemat jatah EAS Build free plan.
