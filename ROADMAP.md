@@ -100,9 +100,24 @@ Urutan: **web dulu** (2a), versi `.native.ts` baru dikerjakan setelah versi web 
 - [x] `src/prompts/blocks.ts` + `starterCall.ts` + unit test (termasuk cek sinkron dengan `PROMPTS.md`).
 - [x] Telepon memakai level, sapaan, dan menit per hari dari profil; durasi rencana `min(menit per hari, 8)`.
 - [x] Isyarat waktu satu menit sebelum durasi rencana, dikirim saat guru diam (maks tunggu 30 detik).
+- [x] Perbaikan setelah uji (guru menutup sendiri di 03:45 dari rencana 8 menit): Blok D "Waktu dan penutupan" (dilarang menutup sebelum isyarat waktu, isi sisa waktu dengan ulang/kuis/latihan kalimat, tanya dulu jika ucapan ambigu). Pelajaran pemula 8–12 item baru; pelajaran percakapan 14 item. Isyarat di pertengahan sesi tidak dipakai (perilaku `clientContent` di tengah sesi belum jelas di dokumentasi).
+- [x] Suara lebih alami: voice `Kore` (*Firm*) → `Sulafat` (*Warm*); Blok E "Suara dan kepribadian" (bahasa sehari-hari santai, partikel "nah/ya/sih/dong", reaksi "hmm"/"wah", tawa kecil, hindari frasa robotik). Dok: `enableAffectiveDialog` dihapus di `gemini-3.8-live`, tag `<laugh>` hanya untuk TTS.
+- [x] Perbaikan sapaan waktu (guru menyapa "selamat siang" pukul 23.37): jam lokal perangkat + sapaan yang cocok (pagi/siang/sore/malam) dikirim di prompt (`timeGreeting`).
 - [ ] Uji manual oleh Mas Wahyu (langkah di *Catatan Hasil Uji*).
 
 **Selesai jika:** dengan profil "Hampir nol", guru berbicara bahasa Indonesia kecuali pada item yang dipelajari, menjalankan pembukaan → agenda → bagian → penutup, dan melatih tiap item dengan latihan tirukan (maks 3 percobaan).
+
+---
+
+## Fase 4c — Desain Layar Telepon (ditambah 2026-11-05)
+
+- [x] Token tema di `src/theme/tokens.ts` (warna, font, ukuran, jarak, radius, bayangan, breakpoint).
+- [x] Font Plus Jakarta Sans lewat `@expo-google-fonts/plus-jakarta-sans` (di-bundle, tanpa hotlink); ikon `@expo/vector-icons`.
+- [x] Layar telepon responsif: dua kolom (≥ 900 px) / satu kolom (HP), sesuai `doc/design/`.
+- [x] Komponen `TutorAvatar` (foto `assets/images/mis-rina.png` dipotong bulat dengan titik fokus wajah dari `src/config/tutor.ts`; inisial "R" jika gambar gagal dimuat), `VoiceBars`, `TranscriptPanel`.
+- [x] Kata/kalimat pelajaran di gelembung guru berwarna teal (`highlightEnglish`, abaikan huruf besar/kecil, tanda baca, spasi).
+- [x] Indikator jujur: tanpa "HD Audio"/"Auto-Sync"; **jeda jawaban** diukur (`src/live/latency.ts`); level suara dari mikrofon asli; Mute berfungsi.
+- [ ] Uji manual oleh Mas Wahyu.
 
 ---
 
@@ -160,8 +175,8 @@ Alasan: data web tersimpan per browser/origin dan hilang jika data situs dihapus
 ## Fase 3 — Telepon Tahan Lama (ditunda)
 
 - [ ] `useLiveCall` dengan state mesin lengkap (`ARCHITECTURE.md §4`).
-- [ ] UI telepon: Mute, Speaker, indikator level suara.
-- [ ] Mute → hentikan kirim audio + `audioStreamEnd`.
+- [ ] UI telepon: ~~Mute~~, Speaker, ~~indikator level suara~~. (Mute dan indikator level sudah dibuat di Fase 4c; Speaker hanya bisa di Android.)
+- [x] Mute → hentikan kirim audio + `audioStreamEnd`. (Fase 4c)
 - [ ] `contextWindowCompression` + `sessionResumption` + sambung ulang otomatis saat `goAway` (koneksi ~10 menit).
 - [ ] Kembalikan durasi telepon ke 15 menit: peringatan di menit 13, otomatis berakhir di menit 15 (dari config).
 - [ ] Penanganan error sesuai `ARCHITECTURE.md §10`.
@@ -187,6 +202,12 @@ Alasan: data web tersimpan per browser/origin dan hilang jika data situs dihapus
 - [ ] Progres lanjutan: streak harian, grafik lebih kaya.
 - [ ] Tombol sembunyikan/tampilkan transkrip saat telepon (latihan listening); pilihan terakhir diingat.
 - [ ] Mode *push-to-talk* (jika gema jadi masalah).
+
+**Fitur dari desain layar telepon (`doc/design/`), urutan prioritas dari Mas Wahyu (2026-11-05):**
+1. [ ] **Kecepatan bicara guru** (lambat/normal) lewat prompt `{{speed}}`, dipilih sebelum telepon. Tidak mempercepat audio di pemutar (mengubah nada suara).
+2. [ ] **Putar ulang audio guru per gelembung.** Audio hanya disimpan di memori selama telepon berjalan, hilang saat layar ditutup (aturan "audio tidak disimpan" tetap berlaku).
+3. [ ] **Tombol "Bantu saya"**: saran jawaban (contoh kalimat Indonesia + Inggris) dibuat model teks **hanya saat tombol ditekan**, bukan setiap giliran (hemat kuota).
+- Ditunda: pilihan bahasa guru **Auto / ID / EN** di layar telepon, dan tombol **Speaker/earphone** (hanya Android).
 
 ---
 
@@ -220,4 +241,5 @@ _Isi selama pengerjaan: latensi, perilaku gema, model yang dipakai, batas kuota 
 - **Catatan uji headless:** `--virtual-time-budget` Edge membuat inisialisasi expo-sqlite (worker) tampak macet; pakai waktu nyata. Menjalankan banyak Edge headless sekaligus pernah membuat dev server kehabisan memori (exit 134).
 - **Uji Fase 4 web lokal (2026-11-05, Mas Wahyu):** onboarding tersimpan, guru menyapa "Mas Wahyu", gelembung transkrip tampil, "Percakapan tersimpan" muncul. Masukan: dengan kemampuan "hampir nol" guru langsung berbahasa Inggris → Fase 4b.
 - **Fase 4b (kode, 2026-11-05):** dokumentasi Live API (capabilities, reference): `clientContent` boleh dikirim sepanjang sesi untuk `gemini-3.8-live`, tetapi `turnComplete: true` **memotong** generasi guru yang sedang berjalan. Karena itu isyarat waktu ditahan sampai guru diam (pemutar audio kosong dan tidak ada transkrip guru yang belum selesai), maksimal 30 detik. Model native audio memilih bahasa sendiri (tidak ada `languageCode`); bahasa diatur lewat system instruction.
+- **Fase 4c (kode, 2026-11-05):** screenshot Edge headless 1280×860 dan 390×844 dibandingkan dengan `doc/design/` (data contoh disisipkan sementara, tidak di-commit). Jeda jawaban diukur dari chunk mikrofon terakhir dengan RMS ≥ 0,02 sampai chunk audio guru pertama tiba (ketelitian ±100 ms, sebelum buffer pemutar); diabaikan saat guru terdengar (gema/barge-in) dan jika > 10 detik. Desain memuat gambar avatar dan logo dari `lh3.googleusercontent.com` → tidak dipakai, menunggu gambar dari Mas Wahyu di `assets/`.
 - **Perubahan urutan:** uji build APK (`eas build -p android --profile preview`) ditunda dari Fase 1 ke akhir Fase 2 (2c) untuk menghemat jatah EAS Build free plan.

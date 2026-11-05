@@ -73,7 +73,8 @@ speakup/
 │   ├── live/                     # SEMUA kode Gemini Live di sini
 │   │   ├── LiveClient.ts         # WebSocket, setup, kirim/terima pesan
 │   │   ├── types.ts              # Tipe pesan client/server
-│   │   └── useLiveCall.ts        # Hook: state telepon untuk UI
+│   │   ├── latency.ts            # Ukur jeda jawaban (akhir bicara murid → audio guru pertama)
+│   │   └── useLiveCall.ts        # Hook: state telepon untuk UI (termasuk mute, level mic, isyarat waktu)
 │   ├── audio/                    # SEMUA kode audio di sini (lihat §3a)
 │   │   ├── types.ts              # Interface MicStreamer & PcmPlayer (bersama)
 │   │   ├── MicStreamer.d.ts      # Tipe modul untuk TypeScript
@@ -105,7 +106,11 @@ speakup/
 │   │   ├── migrations.ts
 │   │   └── repos/                # profile, sessions, transcript, curriculum, mistakes, vocab, settings, stats (agregasi untuk Progres)
 │   ├── store/                    # zustand stores
+│   ├── theme/
+│   │   └── tokens.ts             # Token desain: warna, font, ukuran, jarak, radius, breakpoint (sumber: doc/design/)
+│   ├── content/                  # Label UI + highlightEnglish (warnai item pelajaran di transkrip)
 │   └── components/
+│       └── call/                 # TutorAvatar, VoiceBars, TranscriptPanel
 ├── app.json                      # android.package, version, versionCode, web.output
 ├── eas.json                      # profil EAS Build (preview → APK)
 ├── vercel.json                   # build web, rewrite expo-router, header COEP/COOP
@@ -191,7 +196,7 @@ Pesan `setup` pertama. Nama field diverifikasi 5 November 2026 terhadap referens
 }
 ```
 
-- **Model:** pilih model Live yang di halaman pricing tertulis gratis di kolom Free Tier. Dicek 5 November 2026: `gemini-3.8-live` adalah model default Live API (gratis, dipakai di semua contoh resmi); `gemini-3.1-flash-live-preview` sudah berlabel *legacy*. Model teks: `gemini-3.8-flash` dengan fallback `gemini-3.5-flash-lite` saat kuota habis. Voice default di contoh resmi: `Kore`. Semua nilai ini hanya ada di `src/config/models.ts`.
+- **Model:** pilih model Live yang di halaman pricing tertulis gratis di kolom Free Tier. Dicek 5 November 2026: `gemini-3.8-live` adalah model default Live API (gratis, dipakai di semua contoh resmi); `gemini-3.1-flash-live-preview` sudah berlabel *legacy*. Model teks: `gemini-3.8-flash` dengan fallback `gemini-3.5-flash-lite` saat kuota habis. Voice default di contoh resmi: `Kore` (*Firm*); diganti `Sulafat` (*Warm*) karena `Kore` terdengar kaku. Model Live native audio menerima semua voice TTS. `enableAffectiveDialog` **tidak** didukung `gemini-3.8-live` (dihapus), dan tag `<laugh>`/`<sigh>` hanya untuk model TTS; gaya bicara diatur lewat system instruction (Blok E di `PROMPTS.md`). Semua nilai ini hanya ada di `src/config/models.ts`.
 - **Deteksi suara (VAD):** pakai deteksi otomatis bawaan dulu. Jika guru terlalu cepat memotong saat murid berpikir, atur sensitivitas akhir bicara di `realtimeInputConfig.automaticActivityDetection` — pemula butuh jeda lebih panjang.
 - **Durasi:** menurut dokumentasi, sesi audio tanpa kompresi dibatasi 15 menit, dan **satu koneksi WebSocket hidup sekitar 10 menit** (server mengirim `goAway` sebelum memutus). Jadi telepon 15 menit pasti butuh `contextWindowCompression` + `sessionResumption` (handle berlaku 2 jam) + sambung ulang otomatis (Fase 3). Default timer telepon di app: 15 menit, dengan peringatan di menit 13.
 - **Khusus `gemini-3.8-live`:** respons hanya `AUDIO`; `thinkingConfig`/`thinking_level` tidak didukung (jangan dikirim); *proactive audio* selalu aktif (`proactive_audio: false` = error); *affective dialog* dihapus.
