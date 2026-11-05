@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+
+<html lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/>
+<title>Miss Rina - AI Voice Tutor</title>
+<!-- Tailwind CSS v3 with Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Font Awesome for crisp mobile icons -->
+<link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet"/>
+<!-- Google Fonts: Plus Jakarta Sans -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Configuration -->
+<script data-purpose="tailwind-config">
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              400: '#34d399',
+              500: '#06d6a0',
+              600: '#059669',
+              glow: 'rgba(6, 214, 160, 0.45)',
+            },
+            call: {
+              dark: '#080E1E',
+              card: '#0F1A34',
+              surface: 'rgba(15, 26, 52, 0.75)',
+              bubbleUser: '#2563EB',
+              bubbleBot: '#182442',
+            }
+          },
+          animation: {
+            'pulse-glow': 'pulseGlow 2.8s ease-in-out infinite',
+            'soundbar-1': 'soundbar 1.2s ease-in-out infinite 0.1s',
+            'soundbar-2': 'soundbar 1.5s ease-in-out infinite 0.3s',
+            'soundbar-3': 'soundbar 1.1s ease-in-out infinite 0.2s',
+            'soundbar-4': 'soundbar 1.4s ease-in-out infinite 0.4s',
+          },
+          keyframes: {
+            pulseGlow: {
+              '0%, 100%': { transform: 'scale(1)', opacity: '0.6' },
+              '50%': { transform: 'scale(1.08)', opacity: '0.9' },
+            },
+            soundbar: {
+              '0%, 100%': { height: '8px' },
+              '50%': { height: '24px' },
+            }
+          }
+        }
+      }
+    };
+  </script>
+<style data-purpose="custom-scrollbars">
+    /* Subtle custom scrollbar for conversation box */
+    .transcript-scroll::-webkit-scrollbar {
+      width: 4px;
+    }
+    .transcript-scroll::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 9999px;
+    }
+    .transcript-scroll::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 9999px;
+    }
+    .transcript-scroll::-webkit-scrollbar-thumb:hover {
+      background: rgba(6, 214, 160, 0.5);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen flex items-center justify-center p-0 sm:p-4">
+<!-- BEGIN: MobileDeviceContainer -->
+<!-- Constrained container replicating iOS dimensions & modern curved glass chassis -->
+<div class="relative w-full max-w-[420px] h-[100dvh] sm:h-[860px] bg-call-dark sm:rounded-[44px] shadow-2xl overflow-hidden flex flex-col justify-between border border-slate-800/80">
+<!-- Ambient Radial Glow Effects in Background -->
+<div class="absolute -top-24 left-1/2 -translate-x-1/2 w-80 h-80 bg-brand-500/15 rounded-full blur-3xl pointer-events-none"></div>
+<div class="absolute top-1/3 -right-20 w-64 h-64 bg-blue-600/10 rounded-full blur-3xl pointer-events-none"></div>
+<!-- BEGIN: iOSStatusBar -->
+<header class="relative z-30 pt-3 px-6 flex items-center justify-between text-xs font-semibold text-slate-300 select-none">
+<!-- Time display -->
+<span>9:41</span>
+<!-- Dynamic Island / Sensor Notch Pill -->
+<div class="w-24 h-5 bg-black/80 rounded-full border border-slate-800 flex items-center justify-center gap-1.5 px-2">
+<span class="w-1.5 h-1.5 rounded-full bg-brand-500 animate-ping"></span>
+<span class="text-[9px] text-brand-400 font-medium tracking-tight">AI Active</span>
+</div>
+<!-- System icons -->
+<div class="flex items-center space-x-1.5 text-[11px]">
+<i class="fa-solid fa-signal"></i>
+<i class="fa-solid fa-wifi"></i>
+<i class="fa-solid fa-battery-full text-brand-400"></i>
+</div>
+</header>
+<!-- END: iOSStatusBar -->
+<!-- BEGIN: TopNavigationBar -->
+<!-- Navigation action bar with Return to Home & Call Mode badge -->
+<nav class="relative z-20 px-5 pt-3 pb-1 flex items-center justify-between">
+<!-- Back to Home Button -->
+<a class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900/80 border border-slate-700/60 text-slate-300 text-xs font-medium hover:text-white hover:border-brand-500/50 transition" href="#">
+<i class="fa-solid fa-chevron-left text-[10px]"></i>
+<span>Kembali ke beranda</span>
+</a>
+<!-- Free Plan Pill Tag -->
+<div class="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-500/10 border border-brand-500/30 text-brand-400 text-[11px] font-semibold tracking-wide">
+<span class="w-1.5 h-1.5 rounded-full bg-brand-500"></span>
+<span>Mode: Free</span>
+</div>
+</nav>
+<!-- END: TopNavigationBar -->
+<!-- Scrollable Main Calling Stage -->
+<main class="relative z-10 flex-1 flex flex-col justify-between px-5 py-2 overflow-y-auto overflow-x-hidden">
+<!-- BEGIN: CallHeaderStatus -->
+<!-- Call status, duration clock & save indicator -->
+<section class="text-center pt-1" data-purpose="call-meta">
+<p class="text-[11px] uppercase tracking-wider text-slate-400 font-medium">Telepon selesai</p>
+<h1 class="text-4xl font-extrabold tracking-tight text-white mt-0.5">00:21</h1>
+<div class="inline-flex items-center gap-1.5 mt-1 text-xs text-brand-400 font-medium">
+<i class="fa-regular fa-circle-check text-[11px]"></i>
+<span>Percakapan tersimpan.</span>
+</div>
+</section>
+<!-- END: CallHeaderStatus -->
+<!-- BEGIN: TutorAvatarStage -->
+<!-- Interactive glowing avatar with soundwave indicator -->
+<section class="flex flex-col items-center justify-center my-auto py-2" data-purpose="avatar-stage">
+<div class="relative flex items-center justify-center">
+<!-- Concentric Outer Waves -->
+<div class="absolute w-44 h-44 rounded-full border border-brand-500/25 animate-pulse-glow"></div>
+<div class="absolute w-36 h-36 rounded-full bg-brand-500/10 blur-md"></div>
+<!-- Avatar Image Frame -->
+<div class="relative w-28 h-28 rounded-full p-1 bg-gradient-to-tr from-brand-500 to-blue-500 shadow-lg shadow-brand-500/20">
+<img alt="Miss Rina - Virtual AI English Tutor" class="w-full h-full object-cover rounded-full" src="https://lh3.googleusercontent.com/aida-public/AB6AXuALqalaXQb0LHHmIORY25cuX_qI1oL5ZQ0Z_Nt_aJ-3Edv1OmDDZU76M0f90NvLyhdZcT79V4ciV6JE55yAMH2EgOyHOvrH4RsTEseEuVIhyYg7t_kkBv4dvfE9i_CUQgaxNm9SibQxczAqEBd_0caDjdx7EgDszQvtoVcsIOkz8Khf_TXOlxjmEVsWSsbKcKc8feNSb6lJO6zVuvt8o2ozodrYXH7Pu6tAV65dmERe"/>
+<!-- Verified AI Badge -->
+<div class="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-call-dark border-2 border-brand-500 flex items-center justify-center shadow">
+<img alt="Logo" class="w-5 h-5 rounded-full object-contain" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA080u4V_qNAAdgMtOAEkK4Gn1aqhjZnQ0Ym-KeV-ah7885y5VmHt6VW3XOiI0mfWxl9_U3aqpLsV4pA-7y4Ob0IfCTJfCBUJ6acyljK1MM4j8MMG04s1MQxTLZXKbv9A-x7pdedZGQsaHRhHYooTtTvrIjslDD9zHLJQfdldtBoguTfBvlTKDdcqJC86TOU1_29s0ABKBl7rolQvJ8YdjlI2KMm291D0fkYo0IGbbO"/>
+</div>
+</div>
+</div>
+<!-- Tutor Identity & Presence Tag -->
+<div class="text-center mt-3">
+<h2 class="text-lg font-bold text-white tracking-wide">Miss Rina</h2>
+<p class="text-xs text-slate-400 mt-0.5 font-medium">Tutor Bahasa Inggris &amp; Indonesia</p>
+<!-- Soundwave Animation Pill -->
+<div class="mt-2 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-900/90 border border-slate-700/80">
+<span class="w-1.5 h-1.5 rounded-full bg-brand-400"></span>
+<div class="flex items-center gap-0.5 h-4 px-1">
+<span class="w-1 bg-brand-400 rounded-full animate-soundbar-1"></span>
+<span class="w-1 bg-brand-400 rounded-full animate-soundbar-2"></span>
+<span class="w-1 bg-brand-400 rounded-full animate-soundbar-3"></span>
+<span class="w-1 bg-brand-400 rounded-full animate-soundbar-4"></span>
+<span class="w-1 bg-brand-400 rounded-full animate-soundbar-2"></span>
+</div>
+<span class="text-[10px] text-slate-300 font-medium">Online • Siap bicara</span>
+</div>
+</div>
+</section>
+<!-- END: TutorAvatarStage -->
+<!-- BEGIN: ConversationTranscriptSheet -->
+<!-- Frosted sheet showing conversation text history matching data -->
+<section class="bg-call-card/90 backdrop-blur-md rounded-2xl border border-slate-700/60 p-3.5 shadow-xl" data-purpose="chat-transcript">
+<!-- Transcript Header Toolbar -->
+<div class="flex items-center justify-between pb-2.5 mb-2.5 border-b border-slate-800">
+<div class="flex items-center gap-2">
+<i class="fa-regular fa-message text-xs text-brand-400"></i>
+<span class="text-xs font-semibold text-slate-200">Teks Percakapan</span>
+</div>
+<!-- Quick Language Pill Selection -->
+<div class="flex items-center bg-slate-900/90 rounded-lg p-0.5 border border-slate-700/50 text-[10px]">
+<button class="px-2 py-0.5 rounded font-semibold text-slate-400 hover:text-white transition">EN</button>
+<button class="px-2 py-0.5 rounded font-bold bg-brand-500 text-slate-950 shadow-sm">ID</button>
+</div>
+</div>
+<!-- Chat Bubble History Container -->
+<div class="transcript-scroll max-h-48 overflow-y-auto space-y-2.5 pr-1 text-xs">
+<!-- Message 1: Miss Rina -->
+<div class="flex flex-col items-start" data-purpose="tutor-message">
+<span class="text-[10px] font-semibold text-slate-400 ml-1 mb-0.5">Miss Rina</span>
+<div class="bg-call-bubbleBot text-slate-200 rounded-2xl rounded-tl-sm px-3.5 py-2 max-w-[88%] border border-slate-700/40 leading-relaxed shadow-sm">
+              Hello Mas Wahyu, it is so nice to hear from you today. How are you doing today?
+            </div>
+</div>
+<!-- Message 2: Kamu (Mas Wahyu) -->
+<div class="flex flex-col items-end" data-purpose="user-message">
+<span class="text-[10px] font-semibold text-blue-400 mr-1 mb-0.5">Kamu</span>
+<div class="bg-call-bubbleUser text-white rounded-2xl rounded-tr-sm px-3.5 py-2 max-w-[88%] font-normal leading-relaxed shadow-sm">
+              Pakai bahasa Indonesia saja dulu.
+            </div>
+</div>
+<!-- Message 3: Miss Rina -->
+<div class="flex flex-col items-start" data-purpose="tutor-message">
+<span class="text-[10px] font-semibold text-slate-400 ml-1 mb-0.5">Miss Rina</span>
+<div class="bg-call-bubbleBot text-slate-200 rounded-2xl rounded-tl-sm px-3.5 py-2 max-w-[88%] border border-slate-700/40 leading-relaxed shadow-sm">
+              Tentu saja, Mas Wahyu. Kita bisa gunakan bahasa Indonesia. Sekarang, can you tell me a little bit about your day today?
+            </div>
+</div>
+</div>
+</section>
+<!-- END: ConversationTranscriptSheet -->
+</main>
+<!-- BEGIN: InCallActionBar -->
+<!-- Mobile action controls dock -->
+<footer class="relative z-30 px-6 pt-3 pb-6 bg-slate-950/80 backdrop-blur-lg border-t border-slate-800/80" data-purpose="call-controls">
+<div class="flex items-center justify-between max-w-xs mx-auto">
+<!-- Microphone Toggle Button -->
+<button class="w-12 h-12 rounded-full bg-slate-800/90 border border-slate-700 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition active:scale-95 shadow-md" title="Mute Microphone">
+<i class="fa-solid fa-microphone-slash text-base"></i>
+</button>
+<!-- Primary Call Button (Telepon / Sambungkan Kembali) -->
+<button class="flex items-center justify-center gap-2.5 px-6 h-14 rounded-full bg-brand-500 hover:bg-brand-400 text-slate-950 font-bold text-base shadow-lg shadow-brand-500/30 transition transform active:scale-95" title="Mulai Telepon">
+<i class="fa-solid fa-phone text-lg"></i>
+<span>Telepon</span>
+</button>
+<!-- Speaker / Volume Toggle Button -->
+<button class="w-12 h-12 rounded-full bg-slate-800/90 border border-slate-700 hover:bg-slate-700 text-slate-300 flex items-center justify-center transition active:scale-95 shadow-md" title="Speaker Mode">
+<i class="fa-solid fa-volume-high text-base"></i>
+</button>
+</div>
+<!-- iOS Home Indicator Bar -->
+<div class="w-32 h-1 bg-slate-600/60 rounded-full mx-auto mt-4"></div>
+</footer>
+<!-- END: InCallActionBar -->
+</div>
+<!-- END: MobileDeviceContainer -->
+</body></html>

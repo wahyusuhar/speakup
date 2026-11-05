@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Miss Rina - AI Voice Tutor | Sesi Panggilan</title>
+<!-- Google Fonts: Plus Jakarta Sans -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind CSS CDN with Forms & Container Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Tailwind Configuration -->
+<script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              primary: '#06d6a0',
+              glow: '#00f5b4',
+              cyan: '#00e5ff',
+              darkNavy: '#070c1b',
+              cardNavy: '#0f172e',
+              borderNavy: '#1e2b4d',
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+<!-- Custom Styles: Audio Visualizer Animation & Glowing Effects -->
+<style data-purpose="custom-animations">
+    @keyframes pulseGlow {
+      0%, 100% {
+        box-shadow: 0 0 25px -5px rgba(6, 214, 160, 0.35), 0 0 45px -10px rgba(0, 229, 255, 0.2);
+      }
+      50% {
+        box-shadow: 0 0 45px 5px rgba(6, 214, 160, 0.6), 0 0 70px 0px rgba(0, 229, 255, 0.35);
+      }
+    }
+    .avatar-glow {
+      animation: pulseGlow 3.5s infinite ease-in-out;
+    }
+
+    @keyframes soundWave {
+      0%, 100% { height: 10px; }
+      50% { height: 38px; }
+    }
+    .wave-bar {
+      animation: soundWave 1.4s infinite ease-in-out;
+    }
+    .wave-bar:nth-child(2) { animation-delay: 0.15s; }
+    .wave-bar:nth-child(3) { animation-delay: 0.3s; }
+    .wave-bar:nth-child(4) { animation-delay: 0.45s; }
+    .wave-bar:nth-child(5) { animation-delay: 0.6s; }
+    .wave-bar:nth-child(6) { animation-delay: 0.75s; }
+    .wave-bar:nth-child(7) { animation-delay: 0.9s; }
+    .wave-bar:nth-child(8) { animation-delay: 0.2s; }
+    .wave-bar:nth-child(9) { animation-delay: 0.4s; }
+
+    /* Custom thin scrollbar */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(15, 23, 46, 0.6);
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #1e2b4d;
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #06d6a0;
+    }
+  </style>
+</head>
+<body class="bg-[#070c1b] text-slate-100 font-sans min-h-screen flex flex-col antialiased selection:bg-brand-primary selection:text-black">
+<!-- BEGIN: TopNavigationBar -->
+<header class="w-full border-b border-brand-borderNavy/70 bg-[#0a1126]/85 backdrop-blur-xl sticky top-0 z-50">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
+<!-- Brand & Mode Title -->
+<div class="flex items-center space-x-3.5" data-purpose="branding-container">
+<a class="flex items-center space-x-3 group" href="#">
+<div class="relative w-11 h-11 rounded-2xl overflow-hidden ring-2 ring-brand-primary/50 p-0.5 bg-gradient-to-tr from-brand-primary to-brand-cyan">
+<img alt="Miss Rina AI Logo" class="w-full h-full object-cover rounded-[14px]" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA080u4V_qNAAdgMtOAEkK4Gn1aqhjZnQ0Ym-KeV-ah7885y5VmHt6VW3XOiI0mfWxl9_U3aqpLsV4pA-7y4Ob0IfCTJfCBUJ6acyljK1MM4j8MMG04s1MQxTLZXKbv9A-x7pdedZGQsaHRhHYooTtTvrIjslDD9zHLJQfdldtBoguTfBvlTKDdcqJC86TOU1_29s0ABKBl7rolQvJ8YdjlI2KMm291D0fkYo0IGbbO"/>
+</div>
+<div>
+<div class="flex items-center space-x-2">
+<span class="text-xl font-bold tracking-tight bg-gradient-to-r from-white via-slate-100 to-brand-primary bg-clip-text text-transparent">Miss Rina</span>
+<span class="text-[11px] font-semibold tracking-wider text-brand-primary uppercase px-2 py-0.5 rounded-full bg-brand-primary/10 border border-brand-primary/30">AI Voice</span>
+</div>
+<p class="text-xs text-slate-400 font-medium flex items-center gap-1.5">
+<span>Mode:</span>
+<span class="text-brand-glow font-semibold underline decoration-brand-glow/40 underline-offset-2">Free Call</span>
+</p>
+</div>
+</a>
+</div>
+<!-- Telemetry & Quality Status Indicator -->
+<div class="hidden md:flex items-center space-x-4 bg-brand-cardNavy/80 border border-brand-borderNavy px-4 py-2 rounded-full text-xs" data-purpose="audio-metrics">
+<div class="flex items-center space-x-2">
+<span class="relative flex h-2.5 w-2.5">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2.5 w-2.5 bg-brand-primary"></span>
+</span>
+<span class="font-semibold text-slate-200">HD Audio</span>
+</div>
+<span class="text-slate-600">•</span>
+<div class="text-slate-400 flex items-center space-x-1">
+<svg class="w-3.5 h-3.5 text-brand-cyan" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M13 10V3L4 14h7v7l9-11h-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span>Latency: <strong class="text-slate-200 font-mono">34ms</strong></span>
+</div>
+<span class="text-slate-600">•</span>
+<span class="text-emerald-400 font-medium">Auto-Sync On</span>
+</div>
+<!-- User Profile & Navigation Quick Controls -->
+<div class="flex items-center space-x-3.5" data-purpose="user-navigation">
+<a class="hidden sm:inline-flex items-center space-x-1.5 text-xs text-slate-400 hover:text-brand-primary transition-colors py-2 px-3 rounded-lg hover:bg-slate-800/40" href="#" title="Kembali ke Halaman Utama">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M10 19l-7-7m0 0l7-7m-7 7h18" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+<span class="font-medium">Kembali ke beranda</span>
+</a>
+<!-- Mas Wahyu Avatar Profile Chip -->
+<div class="flex items-center space-x-2.5 pl-3 border-l border-brand-borderNavy/70">
+<div class="w-9 h-9 rounded-full bg-gradient-to-br from-indigo-500 to-sky-600 flex items-center justify-center font-bold text-white shadow-md ring-2 ring-slate-700">
+            W
+          </div>
+<div class="text-left hidden lg:block leading-tight">
+<p class="text-xs font-semibold text-slate-100">Mas Wahyu</p>
+<p class="text-[10px] text-slate-400">Pelajar Aktif</p>
+</div>
+</div>
+</div>
+</div>
+</header>
+<!-- END: TopNavigationBar -->
+<!-- BEGIN: MainContentArea -->
+<main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6 justify-center">
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+<!-- BEGIN: LeftCallStage (Tutor Interaction & Controls) -->
+<section class="lg:col-span-6 xl:col-span-5 flex flex-col justify-between bg-gradient-to-b from-brand-cardNavy/90 via-[#0e1730]/80 to-brand-cardNavy/90 border border-brand-borderNavy rounded-3xl p-6 md:p-8 backdrop-blur-xl shadow-2xl relative overflow-hidden" data-purpose="interactive-tutor-stage">
+<!-- Ambient Background Glow Decor -->
+<div class="absolute -top-24 -left-24 w-72 h-72 bg-brand-primary/10 rounded-full blur-3xl pointer-events-none"></div>
+<div class="absolute -bottom-24 -right-24 w-72 h-72 bg-brand-cyan/10 rounded-full blur-3xl pointer-events-none"></div>
+<!-- Top Status Sub-header -->
+<div class="flex items-center justify-between z-10 w-full mb-6">
+<div class="inline-flex items-center gap-2 bg-slate-900/60 border border-brand-borderNavy/80 px-3 py-1.5 rounded-full text-xs">
+<span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+<span class="text-emerald-400 font-semibold tracking-wide uppercase text-[10px]">Sesi Aktif</span>
+</div>
+<!-- Session Timer Badge -->
+<div class="text-center" data-purpose="call-timer-box">
+<div class="flex items-baseline gap-1.5 justify-end">
+<span class="text-2xl font-mono font-bold tracking-wider text-white">00:21</span>
+<span class="text-[10px] uppercase tracking-wider text-slate-400 font-semibold">Durasi</span>
+</div>
+<p class="text-[11px] text-brand-primary font-medium flex items-center justify-end gap-1">
+<svg class="w-3 h-3 text-brand-primary" fill="currentColor" viewbox="0 0 20 20">
+<path clip-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" fill-rule="evenodd"></path>
+</svg>
+              Percakapan tersimpan
+            </p>
+</div>
+</div>
+<!-- Centered Persona Visual Avatar -->
+<div class="flex flex-col items-center justify-center my-auto py-4 z-10" data-purpose="persona-visual">
+<div class="relative group">
+<!-- Radiant Multi-Layer Ring -->
+<div class="absolute -inset-1.5 bg-gradient-to-r from-brand-primary via-brand-cyan to-emerald-400 rounded-full blur-md opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 avatar-glow"></div>
+<div class="relative w-44 h-44 sm:w-52 sm:h-52 rounded-full overflow-hidden border-4 border-[#070c1b] shadow-2xl bg-slate-900">
+<img alt="Close-up friendly young Indonesian female virtual tutor Miss Rina, warm smiling expression, smart headset or subtle futuristic AI aesthetic, soft studio lighting, high resolution 3D digital persona render" class="w-full h-full object-cover transform hover:scale-105 transition-transform duration-500" src="https://lh3.googleusercontent.com/aida-public/AB6AXuALqalaXQb0LHHmIORY25cuX_qI1oL5ZQ0Z_Nt_aJ-3Edv1OmDDZU76M0f90NvLyhdZcT79V4ciV6JE55yAMH2EgOyHOvrH4RsTEseEuVIhyYg7t_kkBv4dvfE9i_CUQgaxNm9SibQxczAqEBd_0caDjdx7EgDszQvtoVcsIOkz8Khf_TXOlxjmEVsWSsbKcKc8feNSb6lJO6zVuvt8o2ozodrYXH7Pu6tAV65dmERe"/>
+</div>
+<!-- Voice Activity Ping Badge -->
+<div class="absolute bottom-2 right-4 bg-emerald-500 text-slate-950 p-2 rounded-full shadow-lg border-2 border-[#070c1b]" title="AI Mic Aktif">
+<svg class="w-4 h-4 fill-current" viewbox="0 0 24 24">
+<path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"></path>
+<path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"></path>
+</svg>
+</div>
+</div>
+<!-- Tutor Name & Status -->
+<div class="text-center mt-5">
+<h2 class="text-2xl font-bold tracking-tight text-white flex items-center justify-center gap-2">
+              Miss Rina
+              <span class="inline-flex items-center text-[10px] bg-brand-primary/20 text-brand-primary px-2 py-0.5 rounded-full font-semibold border border-brand-primary/30">AI Tutor</span>
+</h2>
+<p class="text-xs text-slate-400 mt-1 font-medium">Mode Percakapan: <span class="text-slate-200">Bilingual (EN / ID)</span></p>
+</div>
+<!-- Dynamic Audio Frequency Visualizer -->
+<div class="mt-6 flex items-center justify-center gap-1.5 h-10 w-full max-w-xs px-4 py-2 bg-slate-900/50 rounded-2xl border border-brand-borderNavy/60" data-purpose="speech-waveform">
+<span class="w-1.5 bg-brand-primary/60 rounded-full wave-bar"></span>
+<span class="w-1.5 bg-brand-cyan/80 rounded-full wave-bar"></span>
+<span class="w-1.5 bg-brand-primary rounded-full wave-bar"></span>
+<span class="w-1.5 bg-emerald-400 rounded-full wave-bar"></span>
+<span class="w-1.5 bg-brand-cyan rounded-full wave-bar"></span>
+<span class="w-1.5 bg-brand-primary rounded-full wave-bar"></span>
+<span class="w-1.5 bg-emerald-400/90 rounded-full wave-bar"></span>
+<span class="w-1.5 bg-brand-cyan/70 rounded-full wave-bar"></span>
+<span class="w-1.5 bg-brand-primary/50 rounded-full wave-bar"></span>
+</div>
+<p class="text-[11px] text-slate-400 mt-2 font-mono flex items-center gap-1.5 animate-pulse">
+<span class="w-1.5 h-1.5 rounded-full bg-brand-primary"></span>
+            Miss Rina sedang mendengarkan Anda...
+          </p>
+</div>
+<!-- Telepon / Call Action Control Bar -->
+<div class="mt-6 pt-5 border-t border-brand-borderNavy/80 z-10" data-purpose="call-control-bar">
+<div class="flex flex-wrap items-center justify-center gap-3">
+<!-- Mute / Unmute Button -->
+<button aria-label="Matikan Mikrofon" class="w-12 h-12 rounded-2xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-slate-300 hover:text-white transition-all shadow-md focus:outline-none focus:ring-2 focus:ring-brand-primary" title="Mute Mic" type="button">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</button>
+<!-- Primary End Call / Telepon Selesai Action Button -->
+<button aria-label="Akhiri Sesi Telepon" class="flex-1 max-w-[200px] h-12 rounded-2xl bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white font-bold tracking-wide flex items-center justify-center gap-2.5 transition-all shadow-lg shadow-emerald-900/30 border border-emerald-400/40" data-purpose="primary-call-toggle" type="button">
+<svg class="w-5 h-5" fill="currentColor" viewbox="0 0 24 24">
+<path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 00-1.01.24l-2.2 2.2a15.045 15.045 0 01-6.59-6.59l2.2-2.21a.96.96 0 00.25-1.01A11.36 11.36 0 018.57 3.9a1 1 0 00-1-1H4c-.55 0-1 .45-1 1 0 9.39 7.61 17 17 17 .55 0 1-.45 1-1v-3.52c0-.55-.45-1-.99-1z"></path>
+</svg>
+<span>Telepon</span>
+</button>
+<!-- Speed Modifier Button -->
+<button class="h-12 px-3.5 rounded-2xl bg-slate-800/80 hover:bg-slate-700 border border-slate-700 flex items-center justify-center text-xs font-bold text-slate-300 hover:text-white transition-all shadow-md focus:outline-none" title="Kecepatan Bicara" type="button">
+              1.0x
+            </button>
+<!-- End Call Red Alternative Button -->
+<button class="w-12 h-12 rounded-2xl bg-rose-500/20 hover:bg-rose-600 border border-rose-500/30 text-rose-400 hover:text-white flex items-center justify-center transition-all shadow-md" title="Akhiri Panggilan (End Call)" type="button">
+<svg class="w-5 h-5 transform rotate-[135deg]" fill="currentColor" viewbox="0 0 24 24">
+<path d="M20.01 15.38c-1.23 0-2.42-.2-3.53-.56a.977.977 0 00-1.01.24l-2.2 2.2a15.045 15.045 0 01-6.59-6.59l2.2-2.21a.96.96 0 00.25-1.01A11.36 11.36 0 018.57 3.9a1 1 0 00-1-1H4c-.55 0-1 .45-1 1 0 9.39 7.61 17 17 17 .55 0 1-.45 1-1v-3.52c0-.55-.45-1-.99-1z"></path>
+</svg>
+</button>
+</div>
+<!-- Back to Dashboard footer link -->
+<div class="mt-4 text-center">
+<a class="text-xs text-slate-400 hover:text-brand-primary transition-colors underline underline-offset-4 decoration-slate-600" href="#">
+              Kembali ke beranda
+            </a>
+</div>
+</div>
+</section>
+<!-- END: LeftCallStage -->
+<!-- BEGIN: RightTranscriptStage (Live Conversation & Pedagogical AI Coaching) -->
+<section class="lg:col-span-6 xl:col-span-7 flex flex-col bg-brand-cardNavy/90 border border-brand-borderNavy rounded-3xl backdrop-blur-xl shadow-2xl overflow-hidden" data-purpose="transcript-and-feedback-stage">
+<!-- Transcript Header Tab Bar -->
+<div class="p-5 md:px-7 border-b border-brand-borderNavy flex items-center justify-between bg-[#0b1328]/60">
+<div class="flex items-center space-x-3">
+<div class="p-2 rounded-xl bg-brand-primary/10 border border-brand-primary/20 text-brand-primary">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+</div>
+<div>
+<h3 class="font-bold text-slate-100 text-sm md:text-base">Teks percakapan</h3>
+<p class="text-xs text-slate-400">Transkripsi langsung &amp; catatan koreksi cerdas</p>
+</div>
+</div>
+<!-- Language switch control badge -->
+<div class="flex items-center bg-slate-900/80 rounded-xl p-1 border border-brand-borderNavy text-xs">
+<button class="px-2.5 py-1 rounded-lg bg-brand-primary text-slate-950 font-bold">Auto</button>
+<button class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition">ID 🇮🇩</button>
+<button class="px-2.5 py-1 rounded-lg text-slate-400 hover:text-white transition">EN 🇬🇧</button>
+</div>
+</div>
+<!-- Chat Stream Dialog Messages Container -->
+<div class="flex-1 p-5 md:p-6 space-y-5 overflow-y-auto max-h-[460px] custom-scrollbar" data-purpose="chat-messages-stream">
+<!-- Message Item 1: Miss Rina Greeting (English) -->
+<article class="flex flex-col items-start space-y-1.5 max-w-xl">
+<div class="flex items-center space-x-2 text-xs text-slate-400 pl-1">
+<span class="font-semibold text-brand-primary">Miss Rina</span>
+<span>•</span>
+<span class="font-mono text-[11px]">00:03</span>
+</div>
+<div class="bg-[#162244]/90 border border-slate-700/60 text-slate-100 rounded-2xl rounded-tl-sm p-4 shadow-sm relative group">
+<p class="text-sm leading-relaxed">
+                Hello Mas Wahyu, it is so nice to hear from you today. How are you doing today?
+              </p>
+<!-- Message Audio Playback Tool -->
+<div class="mt-2.5 pt-2 border-t border-slate-700/50 flex items-center justify-between text-xs text-slate-400">
+<button class="inline-flex items-center gap-1.5 hover:text-brand-primary transition-colors text-[11px]" type="button">
+<svg class="w-3.5 h-3.5 fill-current" viewbox="0 0 24 24">
+<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"></path>
+</svg>
+                  Putar audio
+                </button>
+<span class="text-[10px] bg-brand-primary/10 text-brand-primary px-2 py-0.5 rounded font-mono">Kecepatan normal</span>
+</div>
+</div>
+</article>
+<!-- Message Item 2: User / Mas Wahyu Response (Indonesian) -->
+<article class="flex flex-col items-end space-y-1.5 ml-auto max-w-lg">
+<div class="flex items-center space-x-2 text-xs text-slate-400 pr-1">
+<span class="font-mono text-[11px]">00:10</span>
+<span>•</span>
+<span class="font-semibold text-sky-400">Kamu</span>
+</div>
+<div class="bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl rounded-tr-sm p-4 shadow-lg shadow-blue-900/30">
+<p class="text-sm font-medium leading-relaxed">
+                Pakai bahasa Indonesia saja dulu.
+              </p>
+</div>
+</article>
+<!-- Message Item 3: Miss Rina Bilingual Reply -->
+<article class="flex flex-col items-start space-y-1.5 max-w-xl">
+<div class="flex items-center space-x-2 text-xs text-slate-400 pl-1">
+<span class="font-semibold text-brand-primary">Miss Rina</span>
+<span>•</span>
+<span class="font-mono text-[11px]">00:15</span>
+</div>
+<div class="bg-[#162244]/90 border border-slate-700/60 text-slate-100 rounded-2xl rounded-tl-sm p-4 shadow-sm relative group">
+<p class="text-sm leading-relaxed">
+                Tentu saja, Mas Wahyu. Kita bisa gunakan bahasa Indonesia. Sekarang, <span class="text-brand-glow font-medium">can you tell me a little bit about your day today?</span>
+</p>
+<!-- Audio replay link -->
+<div class="mt-2.5 pt-2 border-t border-slate-700/50 flex items-center justify-between text-xs text-slate-400">
+<button class="inline-flex items-center gap-1.5 hover:text-brand-primary transition-colors text-[11px]" type="button">
+<svg class="w-3.5 h-3.5 fill-current" viewbox="0 0 24 24">
+<path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"></path>
+</svg>
+                  Putar audio
+                </button>
+<span class="text-[10px] text-brand-cyan font-mono">Bilingual switch</span>
+</div>
+</div>
+</article>
+</div>
+<!-- Integrated AI Pedagogical Feedback & Suggested Hints Card -->
+<div class="p-4 md:p-5 bg-[#0a1022] border-t border-brand-borderNavy/80 flex flex-col gap-3" data-purpose="pedagogical-tips-box">
+<div class="flex items-center justify-between">
+<span class="text-xs font-semibold uppercase tracking-wider text-brand-cyan flex items-center gap-1.5">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+<path d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path>
+</svg>
+              Saran Jawaban Anda Berikutnya:
+            </span>
+<span class="text-[11px] text-slate-400">Tekan untuk berbicara kapan saja</span>
+</div>
+<!-- Suggested Quick Replies Chips -->
+<div class="flex flex-wrap gap-2">
+<button class="text-xs bg-[#141e3c] hover:bg-brand-primary/20 hover:border-brand-primary/50 text-slate-200 border border-slate-700/80 rounded-xl px-3 py-2 text-left transition" type="button">
+              💬 "Hari ini saya cukup sibuk dengan pekerjaan."
+            </button>
+<button class="text-xs bg-[#141e3c] hover:bg-brand-primary/20 hover:border-brand-primary/50 text-slate-200 border border-slate-700/80 rounded-xl px-3 py-2 text-left transition" type="button">
+              🇬🇧 "Today has been quite productive, thank you!"
+            </button>
+</div>
+</div>
+</section>
+<!-- END: RightTranscriptStage -->
+</div>
+</main>
+<!-- END: MainContentArea -->
+<!-- BEGIN: PageFooter -->
+<footer class="w-full border-t border-brand-borderNavy/50 bg-[#070c1b]/80 py-4 px-4 text-center text-xs text-slate-500">
+<div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+<p>© 2025 Miss Rina AI Voice Tutor. Seluruh hak cipta dilindungi.</p>
+<div class="flex items-center space-x-4 text-slate-400">
+<a class="hover:text-brand-primary transition" href="#">Pengaturan Audio</a>
+<span>•</span>
+<a class="hover:text-brand-primary transition" href="#">Bantuan &amp; FAQ</a>
+<span>•</span>
+<a class="hover:text-brand-primary transition" href="#">Laporkan Kendala</a>
+</div>
+</div>
+</footer>
+<!-- END: PageFooter -->
+</body></html>
