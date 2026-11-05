@@ -2,7 +2,7 @@
 
 Urutan pengerjaan untuk Claude Code. Kerjakan **satu fase per sesi** (atau satu tugas per sesi untuk fase besar), uji di browser dan di APK pada HP asli, commit, baru lanjut.
 
-Alur build: `npx expo start --web` → deploy Vercel → `npm i -g eas-cli` → `eas login` → `eas build -p android --profile preview` → pasang APK. Expo Go tidak dipakai untuk menguji fitur telepon.
+Alur build: `npx expo start --web` → `git push` ke `main` (Vercel auto-deploy dari GitHub) → `npm i -g eas-cli` → `eas login` → `eas build -p android --profile preview` → pasang APK. Expo Go tidak dipakai untuk menguji fitur telepon.
 
 Tanda: `[ ]` belum, `[x]` selesai. Perbarui file ini setiap tugas selesai.
 
@@ -12,7 +12,7 @@ Tanda: `[ ]` belum, `[x]` selesai. Perbarui file ini setiap tugas selesai.
 
 - [ ] Buat API key gratis di Google AI Studio (https://aistudio.google.com) — tanpa billing.
 - [ ] Di halaman pricing, catat model Live dan model teks yang berlabel gratis di kolom Free Tier. Coba model Live itu di AI Studio → Live untuk merasakan kualitas suaranya.
-- [ ] Buat akun Vercel gratis (Hobby) dan hubungkan ke repo Git (atau pakai `vercel` CLI).
+- [ ] Buat repo GitHub `speakup` dan akun Vercel gratis (Hobby) yang login dengan GitHub.
 - [ ] Buat akun Expo gratis untuk EAS Build; `npm i -g eas-cli` lalu `eas login`.
 - [ ] HP Android asli (Android 10+) yang boleh memasang APK dari luar Play Store.
 - [ ] Browser Chrome (desktop/HP) untuk menguji versi web.
@@ -29,7 +29,7 @@ Tanda: `[ ]` belum, `[x]` selesai. Perbarui file ini setiap tugas selesai.
 - [x] `src/config/models.ts` berisi nama model Live, model teks, voice default, durasi telepon default.
 - [x] Konfigurasi web + EAS: `web.output: "single"`, `metro.config.js` (wasm + COEP/COOP), `vercel.json`, `eas.json` profil `preview` (APK).
 - [x] Jalankan di browser (`npx expo start --web`): layar "Hello SpeakUp".
-- [ ] Deploy ke Vercel: layar "Hello SpeakUp" terbuka di URL Vercel, header COEP/COOP terkirim.
+- [ ] Deploy ke Vercel lewat dashboard (import repo GitHub, auto-deploy setiap push ke `main`; pengaturan di `ARCHITECTURE.md §12`): "Hello SpeakUp" terbuka di URL Vercel, refresh `/call/lesson` tidak 404, `crossOriginIsolated` = `true`.
 - [ ] `eas build -p android --profile preview` → pasang APK di HP: layar "Hello SpeakUp".
 
 **Selesai jika:** "Hello SpeakUp" tampil di URL Vercel dan di APK hasil EAS Build yang terpasang di HP.

@@ -346,12 +346,33 @@ Batasi total panjang (misalnya < 6.000 karakter) agar hemat token dan respons ce
 ```
 npx expo start --web                         # 1. kembangkan & uji di browser
 npx expo export --platform web               # 2. (opsional) cek build web ke dist/
-vercel / git push ke repo yang terhubung     # 3. deploy web (pakai vercel.json)
+git push origin main                         # 3. Vercel auto-deploy dari GitHub (pakai vercel.json)
 npm i -g eas-cli && eas login                # 4. sekali saja
 eas build -p android --profile preview       # 5. APK di cloud → link unduh
                                              # 6. buka link di HP, pasang APK
 ```
 
 - `vercel.json`: `buildCommand: expo export -p web`, `outputDirectory: dist`, rewrite `/:path*` → `/` (SPA expo-router), header COEP `credentialless` + COOP `same-origin`. Tidak ada environment variable.
+
+### Deploy web: import repo GitHub di dashboard Vercel
+
+Deploy **tidak** memakai Vercel CLI. Repo `https://github.com/wahyusuhar/speakup` diimpor sekali di dashboard; setelah itu setiap push ke `main` otomatis membuat deploy *production*, dan push ke branch lain membuat deploy *preview*.
+
+Pengaturan saat import (vercel.com → **Add New… → Project** → pilih repo `speakup` → **Import**):
+
+| Field | Isi |
+|---|---|
+| Project Name | `speakup` |
+| Framework Preset | **Other** (`vercel.json` sudah menetapkan `"framework": null`) |
+| Root Directory | `./` (biarkan) |
+| Build Command | biarkan default/kosong; diambil dari `vercel.json` (`expo export -p web`) |
+| Output Directory | biarkan default/kosong; diambil dari `vercel.json` (`dist`) |
+| Install Command | biarkan default; Vercel mendeteksi `package-lock.json` dan menjalankan `npm install` |
+| Environment Variables | **kosongkan.** API key tidak boleh ada di Vercel |
+
+Setelah proyek dibuat, cek di **Settings**:
+- **Git → Production Branch:** `main`.
+- **Build and Deployment → Node.js Version:** versi LTS yang didukung Expo SDK 58; samakan dengan Node lokal jika build gagal karena versi Node.
+- **Headers:** tidak perlu diatur di dashboard; header COEP/COOP berasal dari `vercel.json`. Verifikasi di browser: Console → `crossOriginIsolated` harus `true`.
 - `eas.json` profil `preview`: `distribution: internal`, `android.buildType: apk`. `cli.appVersionSource: local`, jadi versi diambil dari `app.json` (`version`, `android.versionCode`). Naikkan `versionCode` setiap APK baru yang akan dipasang menimpa versi lama.
 - `eas build` pertama kali akan meminta membuat proyek EAS dan menambahkan `extra.eas.projectId` ke `app.json`; itu aman di-commit.

@@ -40,7 +40,7 @@ eas login
 eas build -p android --profile preview        # hasil: link unduh APK
 ```
 
-Alur: `npx expo start --web` → deploy ke Vercel (`vercel.json` sudah ada) → `eas build -p android --profile preview` → pasang APK di HP.
+Alur: `npx expo start --web` → `git push` ke `main` (Vercel auto-deploy dari repo GitHub, diimpor lewat dashboard; tanpa Vercel CLI) → `eas build -p android --profile preview` → pasang APK di HP.
 
 - **Tidak** memakai Android Studio, Android SDK lokal, JDK, `adb`, atau `npx expo run:android`. Folder `android/` dan `ios/` tidak dibuat dan tidak di-commit.
 - **Expo Go tidak dipakai untuk menguji fitur telepon** (`react-native-audio-api` memakai kode native yang tidak ada di Expo Go). Uji telepon di browser atau di APK hasil EAS.
