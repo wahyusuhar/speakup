@@ -9,7 +9,21 @@ import {
   float32ToInt16,
   int16ToBase64,
   int16ToFloat32,
+  rmsInt16,
 } from '../pcm';
+
+describe('rmsInt16', () => {
+  it('is 0 for silence and empty input', () => {
+    expect(rmsInt16(new Int16Array(0))).toBe(0);
+    expect(rmsInt16(new Int16Array(100))).toBe(0);
+  });
+
+  it('measures a constant and a square wave', () => {
+    expect(rmsInt16(new Int16Array(10).fill(16384))).toBeCloseTo(0.5, 5);
+    const square = Int16Array.from({ length: 100 }, (_, i) => (i % 2 ? 8192 : -8192));
+    expect(rmsInt16(square)).toBeCloseTo(0.25, 5);
+  });
+});
 
 describe('float32ToInt16 / int16ToFloat32', () => {
   it('maps the full range and clamps out-of-range values', () => {

@@ -6,12 +6,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { createMicStreamer } from '@/audio/MicStreamer';
 import { createPcmPlayer } from '@/audio/PcmPlayer';
+import { base64ToInt16, rmsInt16 } from '@/audio/pcm';
 import { AudioError, type MicStreamer, type PcmPlayer } from '@/audio/types';
 import { CALL_DURATION_MIN, DEFAULT_VOICE, LIVE_MODEL } from '@/config/models';
 import { CALL_START_CUE } from '@/prompts/blocks';
 import { apiKeyStore } from '@/storage/apiKeyStore';
 
 import { buildCallEndRecord, endReasonForClose, type CallEndReason, type CallEndRecord } from './callRecord';
+import { ResponseLatencyTracker } from './latency';
 import { LiveClient } from './LiveClient';
 import { LiveError, type LiveClientEvent } from './types';
 
@@ -27,7 +29,20 @@ export type CallErrorCode =
 
 export type CallError = { code: CallErrorCode; detail?: string };
 
-export type TranscriptTurn = { speaker: 'user' | 'tutor'; text: string; interrupted?: boolean };
+export type TranscriptTurn = {
+  speaker: 'user' | 'tutor';
+  text: string;
+  /** Seconds since the call became active when this turn's text started (0 if before). */
+  atSec: number;
+  interrupted?: boolean;
+};
+
+type Speaker = TranscriptTurn['speaker'];
+type PendingTurn = { text: string; atSec: number };
+/** Turns still being spoken (streaming transcription); empty text = none. */
+export type LiveTurns = Record<Speaker, PendingTurn>;
+
+const EMPTY_PENDING: LiveTurns = { user: { text: '', atSec: 0 }, tutor: { text: '', atSec: 0 } };
 
 export type { CallEndRecord } from './callRecord';
 
@@ -82,7 +97,12 @@ export function useLiveCall(options: UseLiveCallOptions = {}) {
   /** Finished turns, for on-screen display. */
   const [transcript, setTranscript] = useState<TranscriptTurn[]>([]);
   /** Text of the turns still in progress (streaming transcription). */
-  const [liveText, setLiveText] = useState({ user: '', tutor: '' });
+  const [liveText, setLiveText] = useState<LiveTurns>(EMPTY_PENDING);
+  const [muted, setMuted] = useState(false);
+  /** Student mic level 0..1 (quantized), for the on-screen voice indicator. */
+  const [micLevel, setMicLevel] = useState(0);
+  /** Last measured response delay in ms (see ./latency.ts); null until measured. */
+  const [responseDelayMs, setResponseDelayMs] = useState<number | null>(null);
 
   const sessionRef = useRef<Session | null>(null);
   const endingRef = useRef(false);
@@ -90,8 +110,11 @@ export function useLiveCall(options: UseLiveCallOptions = {}) {
   const startedAtRef = useRef(0);
   const reportedRef = useRef(false);
   const transcriptRef = useRef<TranscriptTurn[]>([]);
-  const pendingRef = useRef({ user: '', tutor: '' });
+  const pendingRef = useRef<LiveTurns>(EMPTY_PENDING);
   const tutorSpeakingRef = useRef(false);
+  const mutedRef = useRef(false);
+  const micLevelRef = useRef(0);
+  const latencyRef = useRef(new ResponseLatencyTracker());
   const wrapUpRef = useRef<{ atSec: number; text: string; sent: boolean } | null>(null);
 
   const onCallEndedRef = useRef(options.onCallEnded);
@@ -99,12 +122,22 @@ export function useLiveCall(options: UseLiveCallOptions = {}) {
     onCallEndedRef.current = options.onCallEnded;
   });
 
-  const commitTurn = useCallback((speaker: 'user' | 'tutor', interrupted = false) => {
-    const text = pendingRef.current[speaker].trim();
-    pendingRef.current[speaker] = '';
-    setLiveText({ ...pendingRef.current });
+  const appendText = useCallback((speaker: Speaker, chunk: string) => {
+    const prev = pendingRef.current[speaker];
+    const startedAt = startedAtRef.current;
+    const nowSec = startedAt ? Math.max(0, Math.floor((Date.now() - startedAt) / 1000)) : 0;
+    const atSec = prev.text === '' ? nowSec : prev.atSec;
+    pendingRef.current = { ...pendingRef.current, [speaker]: { text: prev.text + chunk, atSec } };
+    setLiveText(pendingRef.current);
+  }, []);
+
+  const commitTurn = useCallback((speaker: Speaker, interrupted = false) => {
+    const { text: raw, atSec } = pendingRef.current[speaker];
+    const text = raw.trim();
+    pendingRef.current = { ...pendingRef.current, [speaker]: { text: '', atSec: 0 } };
+    setLiveText(pendingRef.current);
     if (!text) return;
-    const turn: TranscriptTurn = { speaker, text, interrupted };
+    const turn: TranscriptTurn = { speaker, text, atSec, interrupted };
     transcriptRef.current.push(turn);
     setTranscript((t) => [...t, turn]);
     console.log(`[transcript] ${speaker}${interrupted ? ' (terpotong)' : ''}: ${text}`);
@@ -115,6 +148,8 @@ export function useLiveCall(options: UseLiveCallOptions = {}) {
     sessionRef.current = null;
     if (!s) return;
     s.unsubscribe();
+    micLevelRef.current = 0;
+    setMicLevel(0);
     await s.mic.stop().catch(() => undefined);
     s.client.close();
     await s.player.close().catch(() => undefined);
@@ -162,21 +197,26 @@ export function useLiveCall(options: UseLiveCallOptions = {}) {
       const s = sessionRef.current;
       if (!s) return;
       switch (event.type) {
-        case 'audio':
+        case 'audio': {
+          const delay = latencyRef.current.onTutorAudio(Date.now());
+          if (delay !== null) {
+            setResponseDelayMs(delay);
+            console.log(`[latency] jeda jawaban ${delay} ms`);
+          }
           s.player.enqueue(event.data);
           break;
+        }
         case 'interrupted':
           // Barge-in: the student started talking; stop the tutor's audio now.
           s.player.flush();
+          latencyRef.current.onTutorSilent();
           commitTurn('tutor', true);
           break;
         case 'inputTranscript':
-          pendingRef.current.user += event.text;
-          setLiveText({ ...pendingRef.current });
+          appendText('user', event.text);
           break;
         case 'outputTranscript':
-          pendingRef.current.tutor += event.text;
-          setLiveText({ ...pendingRef.current });
+          appendText('tutor', event.text);
           break;
         case 'turnComplete':
           commitTurn('user');
@@ -200,8 +240,30 @@ export function useLiveCall(options: UseLiveCallOptions = {}) {
           break;
       }
     },
-    [commitTurn, fail],
+    [appendText, commitTurn, fail],
   );
+
+  /** Handles one mic chunk: level meter, latency tracking, and sending (unless muted). */
+  const onMicChunk = useCallback((client: LiveClient, chunk: string) => {
+    const now = Date.now();
+    const rms = mutedRef.current ? 0 : rmsInt16(base64ToInt16(chunk));
+    if (!tutorSpeakingRef.current) latencyRef.current.onMicLevel(now, rms);
+    // Quantize so the screen re-renders only when the meter visibly changes.
+    const level = Math.min(1, Math.round(Math.min(1, rms * 8) * 10) / 10);
+    if (level !== micLevelRef.current) {
+      micLevelRef.current = level;
+      setMicLevel(level);
+    }
+    if (!mutedRef.current) client.sendAudio(chunk);
+  }, []);
+
+  const toggleMute = useCallback(() => {
+    const next = !mutedRef.current;
+    mutedRef.current = next;
+    setMuted(next);
+    // Lets automatic activity detection end the student's turn instead of waiting for more audio.
+    if (next) sessionRef.current?.client.sendAudioStreamEnd();
+  }, []);
 
   const start = useCallback(
     async ({ systemInstruction, wrapUpCue }: StartCallOptions) => {
@@ -209,12 +271,18 @@ export function useLiveCall(options: UseLiveCallOptions = {}) {
       endingRef.current = false;
       wrapUpRef.current = wrapUpCue ? { ...wrapUpCue, sent: false } : null;
       tutorSpeakingRef.current = false;
+      mutedRef.current = false;
+      micLevelRef.current = 0;
+      latencyRef.current = new ResponseLatencyTracker();
+      setMuted(false);
+      setMicLevel(0);
+      setResponseDelayMs(null);
       startedAtRef.current = 0;
       reportedRef.current = false;
       transcriptRef.current = [];
-      pendingRef.current = { user: '', tutor: '' };
+      pendingRef.current = EMPTY_PENDING;
       setTranscript([]);
-      setLiveText({ user: '', tutor: '' });
+      setLiveText(EMPTY_PENDING);
       setError(null);
       setElapsedSec(0);
       setTutorSpeaking(false);
@@ -224,6 +292,7 @@ export function useLiveCall(options: UseLiveCallOptions = {}) {
       const player = createPcmPlayer({
         onPlayingChange: (playing) => {
           tutorSpeakingRef.current = playing;
+          if (!playing) latencyRef.current.onTutorSilent();
           setTutorSpeaking(playing);
         },
       });
@@ -260,7 +329,7 @@ export function useLiveCall(options: UseLiveCallOptions = {}) {
       client.sendText(CALL_START_CUE);
 
       try {
-        await mic.start((chunk) => client.sendAudio(chunk));
+        await mic.start((chunk) => onMicChunk(client, chunk));
       } catch (e) {
         if (endingRef.current) return;
         return fail(audioErrorToCallError(e));
@@ -270,7 +339,7 @@ export function useLiveCall(options: UseLiveCallOptions = {}) {
       startedAtRef.current = Date.now();
       setStatus('active');
     },
-    [fail, handleEvent],
+    [fail, handleEvent, onMicChunk],
   );
 
   const hangUp = useCallback(() => endCall('user_hangup'), [endCall]);
@@ -287,7 +356,7 @@ export function useLiveCall(options: UseLiveCallOptions = {}) {
       }
       const cue = wrapUpRef.current;
       if (cue && !cue.sent && sec >= cue.atSec) {
-        const tutorSilent = !tutorSpeakingRef.current && pendingRef.current.tutor === '';
+        const tutorSilent = !tutorSpeakingRef.current && pendingRef.current.tutor.text === '';
         if (tutorSilent || sec >= cue.atSec + WRAP_UP_MAX_WAIT_SEC) {
           cue.sent = true;
           sessionRef.current?.client.sendText(cue.text);
@@ -307,5 +376,18 @@ export function useLiveCall(options: UseLiveCallOptions = {}) {
     [teardown, reportEnd],
   );
 
-  return { status, tutorSpeaking, elapsedSec, error, transcript, liveText, start, hangUp };
+  return {
+    status,
+    tutorSpeaking,
+    elapsedSec,
+    error,
+    transcript,
+    liveText,
+    muted,
+    micLevel,
+    responseDelayMs,
+    start,
+    hangUp,
+    toggleMute,
+  };
 }

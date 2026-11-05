@@ -51,6 +51,17 @@ export function base64ToInt16(b64: string): Int16Array {
   return out;
 }
 
+/** Root-mean-square level of Int16 samples, 0 (silence) to ~1 (full scale). */
+export function rmsInt16(samples: Int16Array): number {
+  if (samples.length === 0) return 0;
+  let sum = 0;
+  for (let i = 0; i < samples.length; i++) {
+    const v = (samples[i] ?? 0) / 0x8000;
+    sum += v * v;
+  }
+  return Math.sqrt(sum / samples.length);
+}
+
 /**
  * Linear-interpolation resampler that keeps state between chunks, so a stream
  * split into arbitrary chunks resamples to the same output as one big buffer.
