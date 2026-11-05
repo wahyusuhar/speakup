@@ -16,9 +16,10 @@ Dokumen ini menjelaskan *bagaimana* aplikasi dibangun. *Apa* yang dibangun ada d
 ## 1. Prinsip
 
 1. **Rp0.** Tidak ada server berbayar, tidak ada layanan berkartu kredit.
-2. **Local-first.** Semua data di SQLite pada HP. Tidak ada backend di v1.
-3. **Telepon dulu.** Jalur audio realtime adalah bagian paling berisiko; dikerjakan dan distabilkan paling awal.
-4. **Dua model, dua peran.**
+2. **Local-first.** Semua data di SQLite pada perangkat (HP, atau browser lewat `expo-sqlite` web). Tidak ada backend di v1; Vercel hanya menyajikan file statis.
+3. **Satu kode, dua platform.** Proyek Expo yang sama jalan di web (lingkungan pengembangan utama, hosting Vercel) dan Android (APK via EAS Build). Perbedaan platform hanya di modul `*.web.ts` / `*.native.ts` (lihat §3a).
+4. **Telepon dulu.** Jalur audio realtime adalah bagian paling berisiko; dikerjakan dan distabilkan paling awal.
+5. **Dua model, dua peran.**
    - *Model Live* (suara-ke-suara) → menjalankan telepon.
    - *Model teks* (Gemini Flash / Flash-Lite free tier) → analisis transkrip, koreksi, penyusunan kurikulum. Output selalu JSON terstruktur.
 
@@ -27,14 +28,17 @@ Dokumen ini menjelaskan *bagaimana* aplikasi dibangun. *Apa* yang dibangun ada d
 | Lapisan | Pilihan | Alasan |
 |---|---|---|
 | Framework | Expo (SDK terbaru) + React Native + TypeScript | Sudah familiar, gratis |
-| Build | **Development build** (`expo-dev-client`) + build lokal (`npx expo run:android` / Gradle) | Library audio memakai kode native, tidak jalan di Expo Go. Build lokal = gratis, tanpa kuota EAS |
+| Web | `react-native-web`, `web.output: "single"` (SPA), `npx expo export --platform web` → `dist/` | Lingkungan pengembangan utama; tanpa toolchain Android lokal |
+| Hosting web | Vercel (Hobby, gratis) dengan `vercel.json` | Rewrite semua path ke `/` untuk expo-router + header COEP/COOP untuk `expo-sqlite` |
+| Build Android | **EAS Build** (cloud, free plan) profil `preview` → APK (`eas build -p android --profile preview`) | Tanpa Android Studio/SDK/JDK lokal. Free plan: 15 build Android, antrean prioritas rendah. Folder `android/` dibuat di server EAS, tidak di-commit. **Expo Go tidak dipakai** untuk menguji telepon (audio memakai kode native) |
 | Navigasi | `expo-router` | Berbasis file, sederhana |
 | State | `zustand` | Ringan |
-| Database | `expo-sqlite` | Lokal, gratis |
-| Penyimpanan rahasia | `expo-secure-store` | Untuk API key |
-| Audio (rekam + putar) | `react-native-audio-api` (Software Mansion) | API mirip Web Audio: `AudioRecorder` untuk frame PCM, `AudioContext` untuk pemutaran terjadwal tanpa jeda |
+| Database | `expo-sqlite` | Lokal, gratis. Di web memakai build WebAssembly: butuh `wasm` di `assetExts` Metro dan header `Cross-Origin-Embedder-Policy: credentialless` + `Cross-Origin-Opener-Policy: same-origin` (dipasang di `metro.config.js` untuk dev dan `vercel.json` untuk produksi). Di web tidak ada full-text search (FTS) |
+| Penyimpanan API key | `src/storage/apiKeyStore`: `expo-secure-store` (Android) / `localStorage` (web) | `expo-secure-store` tidak mendukung web. Key hanya ada di perangkat/browser pengguna, tidak pernah di repo atau env var Vercel/EAS |
+| Audio Android | `react-native-audio-api` (Software Mansion), hanya di `*.native.ts` | API mirip Web Audio: `AudioRecorder` untuk frame PCM, `AudioContext` untuk pemutaran terjadwal tanpa jeda |
+| Audio web | API browser: `getUserMedia` + Web Audio (`AudioContext`, `AudioWorklet`), hanya di `*.web.ts` | Mikrofon butuh HTTPS (Vercel) atau `localhost` |
 | Izin mikrofon | API izin bawaan library audio | Android `RECORD_AUDIO` + `MODIFY_AUDIO_SETTINGS`, didaftarkan lewat config plugin `react-native-audio-api` di `app.json`. Foreground service bawaan plugin dimatikan (telepon selalu di depan layar); jika nanti butuh mic di latar, tipe service harus `microphone`, bukan `mediaPlayback` |
-| Konfigurasi native | `expo-build-properties` | `minSdkVersion` 29 (Android 10+). Folder `android/` dihasilkan prebuild (CNG), tidak di-commit |
+| Konfigurasi native | `expo-build-properties` | `minSdkVersion` 29 (Android 10+). Semua konfigurasi native lewat `app.json` (CNG); EAS Build menjalankan prebuild di cloud |
 | Encoding | `buffer` (polyfill) | Base64 untuk PCM |
 | Validasi | `zod` | Validasi respons model AI & pesan server |
 | Layar menyala | `expo-keep-awake` | Layar tidak mati selama telepon |
@@ -42,7 +46,7 @@ Dokumen ini menjelaskan *bagaimana* aplikasi dibangun. *Apa* yang dibangun ada d
 | Model teks | REST `generateContent` via `fetch` | Sederhana, tanpa SDK |
 | UI | StyleSheet / NativeWind (opsional) | Bebas |
 
-Alternatif jika `react-native-audio-api` bermasalah: `@siteed/expo-audio-studio` untuk rekam, atau modul Expo native kecil yang membungkus `AudioRecord`/`AudioTrack` Android.
+Alternatif jika `react-native-audio-api` bermasalah di Android: `@siteed/expo-audio-studio` untuk rekam, atau modul Expo native kecil yang membungkus `AudioRecord`/`AudioTrack` Android. Karena audio dipisah per platform, mengganti library Android tidak mengubah versi web.
 
 ## 3. Struktur Folder
 
@@ -67,10 +71,20 @@ speakup/
 │   │   ├── LiveClient.ts         # WebSocket, setup, kirim/terima pesan
 │   │   ├── types.ts              # Tipe pesan client/server
 │   │   └── useLiveCall.ts        # Hook: state telepon untuk UI
-│   ├── audio/
-│   │   ├── MicStreamer.ts        # Rekam → resample 16 kHz → Int16 → base64
-│   │   ├── PcmPlayer.ts          # base64 → Int16 24 kHz → Float32 → antrean putar
-│   │   └── pcm.ts                # Utilitas konversi & resample
+│   ├── audio/                    # SEMUA kode audio di sini (lihat §3a)
+│   │   ├── types.ts              # Interface MicStreamer & PcmPlayer (bersama)
+│   │   ├── MicStreamer.d.ts      # Tipe modul untuk TypeScript
+│   │   ├── MicStreamer.web.ts    # getUserMedia + Web Audio → 16 kHz → Int16 → base64
+│   │   ├── MicStreamer.native.ts # react-native-audio-api → 16 kHz → Int16 → base64
+│   │   ├── PcmPlayer.d.ts
+│   │   ├── PcmPlayer.web.ts      # base64 → Int16 24 kHz → Float32 → antrean putar (browser)
+│   │   ├── PcmPlayer.native.ts   # idem, react-native-audio-api
+│   │   └── pcm.ts                # Utilitas konversi & resample (murni, bersama)
+│   ├── storage/
+│   │   ├── apiKeyStore.types.ts  # Interface ApiKeyStore
+│   │   ├── apiKeyStore.d.ts
+│   │   ├── apiKeyStore.web.ts    # localStorage
+│   │   └── apiKeyStore.native.ts # expo-secure-store
 │   ├── ai/
 │   │   ├── textModel.ts          # Wrapper generateContent + JSON schema
 │   │   ├── analyzeSession.ts     # Transkrip → laporan sesi
@@ -87,12 +101,31 @@ speakup/
 │   │   └── repos/                # profile, sessions, curriculum, mistakes, vocab
 │   ├── store/                    # zustand stores
 │   └── components/
+├── app.json                      # android.package, version, versionCode, web.output
+├── eas.json                      # profil EAS Build (preview → APK)
+├── vercel.json                   # build web, rewrite expo-router, header COEP/COOP
+├── metro.config.js               # wasm + header COEP/COOP untuk dev server
 ├── PRD.md
 ├── ARCHITECTURE.md
 ├── PROMPTS.md
 ├── ROADMAP.md
 └── CLAUDE.md
 ```
+
+## 3a. Kode per Platform
+
+Metro memilih file berdasarkan platform: `X.web.ts` untuk web, `X.native.ts` untuk Android. TypeScript membaca `X.d.ts` yang berisi tipe ekspor yang sama. Pemanggil cukup menulis:
+
+```ts
+import { createMicStreamer } from '@/audio/MicStreamer';
+import { apiKeyStore } from '@/storage/apiKeyStore';
+```
+
+Aturan:
+- Setiap pasangan `.web.ts` / `.native.ts` wajib mengimplementasikan interface yang sama (`src/audio/types.ts`, `src/storage/apiKeyStore.types.ts`); `X.d.ts` mengekspor tipe dari interface itu.
+- `src/live/`, `src/ai/`, `src/db/`, dan UI tidak boleh tahu platformnya.
+- `react-native-audio-api` hanya diimpor di `*.native.ts`; API browser (`navigator.mediaDevices`, `AudioContext` global, `localStorage`) hanya di `*.web.ts`.
+- `WebSocket` dan `fetch` tersedia di kedua platform, jadi `src/live/` dan `src/ai/` cukup satu versi.
 
 ## 4. Alur Telepon (inti)
 
@@ -160,13 +193,16 @@ Pesan `setup` pertama (nama field **wajib dicek ulang** dengan referensi API ter
 ### Endpoint & autentikasi
 
 - WebSocket: `wss://generativelanguage.googleapis.com/ws/google.ai.generativelanguage.v1beta.GenerativeService.BidiGenerateContent?key=<API_KEY>`
-- v1 (pribadi): API key dari Google AI Studio, disimpan di `expo-secure-store`, dimasukkan pengguna di layar onboarding. **Tidak pernah** di-commit atau ditaruh di `.env` yang ikut ke repo.
+- v1 (pribadi): API key dari Google AI Studio, dimasukkan pengguna di layar onboarding dan disimpan lewat `apiKeyStore` (`expo-secure-store` di Android, `localStorage` di browser). **Tidak pernah** di-commit, ditaruh di `.env`, atau di environment variable Vercel/EAS. Situs Vercel bersifat publik tetapi kosong dari key: siapa pun yang membukanya harus memasukkan key sendiri, dan key itu hanya tersimpan di browsernya.
+- Catatan web: `localStorage` lebih lemah daripada Keystore Android (bisa dibaca skrip apa pun di origin yang sama). Karena itu situs tidak memuat skrip pihak ketiga.
 - Jika suatu saat APK dibagikan: pindah ke *ephemeral token* yang dicetak oleh backend kecil gratis (misalnya Cloudflare Workers free plan), sehingga API key asli tidak ada di APK.
 
 ## 6. Pipeline Audio
 
+Langkah di bawah sama untuk kedua platform; yang berbeda hanya sumber frame dan konteks pemutaran (`react-native-audio-api` di Android, `getUserMedia` + `AudioContext`/`AudioWorklet` browser di web). Konversi dan resample memakai `pcm.ts` yang sama.
+
 ### Mikrofon → server (`MicStreamer`)
-1. `AudioRecorder` menghasilkan frame Float32 pada sample rate perangkat (sering 44,1/48 kHz).
+1. `AudioRecorder` (Android) atau `getUserMedia` + `AudioWorklet` (web) menghasilkan frame Float32 pada sample rate perangkat (sering 44,1/48 kHz).
 2. Resample ke **16 kHz** (downsample linear cukup untuk suara).
 3. Konversi Float32 [-1, 1] → Int16 little-endian (clamp).
 4. Kumpulkan per ~100 ms (1.600 sampel), encode base64, kirim.
@@ -180,7 +216,7 @@ Pesan `setup` pertama (nama field **wajib dicek ulang** dengan referensi API ter
 
 ### Gema (echo)
 Jika suara guru dari speaker terekam lagi oleh mikrofon, model bisa "memotong dirinya sendiri". Mitigasi berurutan:
-1. Aktifkan mode audio komunikasi / echo cancellation jika library mendukung.
+1. Aktifkan mode audio komunikasi / echo cancellation jika library mendukung. Di web: `getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } })`.
 2. Sarankan earphone di layar telepon (tips kecil).
 3. Fallback: tombol "tahan untuk bicara" (*push-to-talk*) sebagai mode alternatif.
 
@@ -275,7 +311,7 @@ CREATE TABLE settings (
 );
 ```
 
-API key **tidak** disimpan di tabel `settings`, melainkan di `expo-secure-store`.
+API key **tidak** disimpan di tabel `settings`, melainkan lewat `apiKeyStore` (`expo-secure-store` / `localStorage`).
 
 ## 9. Penyusunan System Prompt Telepon
 
@@ -302,5 +338,20 @@ Batasi total panjang (misalnya < 6.000 karakter) agar hemat token dan respons ce
 ## 11. Pengujian
 
 - **Unit test** (Jest): `pcm.ts` (resample, konversi Int16/Float32, base64), builder system prompt, validasi JSON hasil model teks, repo database.
-- **Uji manual di HP asli** (emulator sering bermasalah dengan audio): latensi, barge-in, echo dengan speaker vs earphone, telepon 15 menit, mode pesawat di tengah telepon.
+- **Uji manual di dua platform:** browser (Chrome desktop/HP, lewat `npx expo start --web` atau URL Vercel) dan APK di HP asli. Cek latensi, barge-in, echo dengan speaker vs earphone, telepon 15 menit, mode pesawat/putus jaringan di tengah telepon. Expo Go tidak dipakai.
 - Simpan contoh transkrip di `__fixtures__/` untuk menguji `analyzeSession` tanpa menelepon.
+
+## 12. Build & Deploy
+
+```
+npx expo start --web                         # 1. kembangkan & uji di browser
+npx expo export --platform web               # 2. (opsional) cek build web ke dist/
+vercel / git push ke repo yang terhubung     # 3. deploy web (pakai vercel.json)
+npm i -g eas-cli && eas login                # 4. sekali saja
+eas build -p android --profile preview       # 5. APK di cloud → link unduh
+                                             # 6. buka link di HP, pasang APK
+```
+
+- `vercel.json`: `buildCommand: expo export -p web`, `outputDirectory: dist`, rewrite `/:path*` → `/` (SPA expo-router), header COEP `credentialless` + COOP `same-origin`. Tidak ada environment variable.
+- `eas.json` profil `preview`: `distribution: internal`, `android.buildType: apk`. `cli.appVersionSource: local`, jadi versi diambil dari `app.json` (`version`, `android.versionCode`). Naikkan `versionCode` setiap APK baru yang akan dipasang menimpa versi lama.
+- `eas build` pertama kali akan meminta membuat proyek EAS dan menambahkan `extra.eas.projectId` ke `app.json`; itu aman di-commit.

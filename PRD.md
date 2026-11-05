@@ -1,13 +1,13 @@
 # PRD — SpeakUp (nama kerja)
 
-Aplikasi Android belajar bahasa Inggris dengan AI yang berperan sebagai **guru privat**, dengan **fitur telepon** (percakapan suara realtime) sebagai inti pengalaman belajar.
+Aplikasi belajar bahasa Inggris (web dan Android) dengan AI yang berperan sebagai **guru privat**, dengan **fitur telepon** (percakapan suara realtime) sebagai inti pengalaman belajar.
 
 | | |
 |---|---|
 | Pemilik | Wahyu Suhardiyono |
 | Status | Draft v1 |
 | Tanggal | 5 November 2026 |
-| Platform | Android (APK, dipakai pribadi) |
+| Platform | Web (hosting Vercel) + Android (APK via EAS Build), satu proyek Expo, dipakai pribadi |
 | Biaya | Rp0 — seluruh komponen wajib gratis |
 
 ---
@@ -28,9 +28,9 @@ SpeakUp mengisi celah itu: **guru privat yang bisa ditelepon kapan saja**, yang 
 
 ### Bukan tujuan (v1)
 
-- Bukan aplikasi publik / Play Store (dipakai pribadi dulu).
+- Bukan aplikasi publik / Play Store (dipakai pribadi dulu). URL Vercel bisa diakses publik, tetapi tidak berisi key atau data siapa pun.
 - Tidak ada akun pengguna, login, atau sinkronisasi cloud.
-- Tidak ada iOS.
+- Tidak ada iOS (versi web tetap bisa dibuka di browser mana pun, tetapi yang diuji hanya Chrome).
 - Tidak ada fitur sosial, leaderboard, atau pembayaran.
 - Tidak ada penilaian pelafalan berbasis skor fonetik presisi (hanya umpan balik dari AI).
 
@@ -116,11 +116,11 @@ Prioritas: **P0** wajib untuk MVP, **P1** penting setelah MVP, **P2** nanti.
 | Aspek | Kebutuhan |
 |---|---|
 | Biaya | Tidak ada layanan berbayar. Hanya free tier Gemini API + tool open source. |
-| Privasi | Semua data progres disimpan lokal di HP (SQLite). Audio tidak disimpan, hanya transkrip teks. |
-| Keamanan key | API key disimpan di `expo-secure-store`, tidak di-commit ke repo. |
+| Privasi | Semua data progres disimpan lokal di perangkat (SQLite di HP, atau di browser untuk versi web). Audio tidak disimpan, hanya transkrip teks. Data web dan data APK terpisah, tidak tersinkron. |
+| Keamanan key | API key diinput pengguna dan disimpan per platform: `expo-secure-store` di Android, `localStorage` di browser. Tidak di-commit ke repo dan tidak disimpan di environment variable Vercel/EAS. |
 | Kinerja | Audio tanpa putus-putus (gapless), latensi respons wajar di 4G. |
 | Keandalan | Menangani putus koneksi, batas kuota (HTTP 429 / sesi ditolak), dan batas durasi sesi Live API. |
-| Kompatibilitas | Android 10+ (API 29+). |
+| Kompatibilitas | Android 10+ (API 29+); web di Chrome terbaru (desktop & Android), lewat HTTPS. |
 | Bahasa UI | Bahasa Indonesia. |
 
 ## 7. Batasan & Risiko
@@ -131,8 +131,9 @@ Prioritas: **P0** wajib untuk MVP, **P1** penting setelah MVP, **P2** nanti.
 | Model Live berstatus *preview* — nama/perilaku bisa berubah | Kode koneksi rusak | Nama model disimpan di satu file config; cek ulang dokumentasi tiap update. |
 | Batas durasi sesi Live API | Telepon terputus otomatis | Gunakan *context window compression* + *session resumption*; batasi telepon di bawah batas. |
 | Data free tier dipakai Google untuk pengembangan produk | Privasi | Peringatan di onboarding: jangan menyebut data pribadi sensitif saat sesi. |
-| API key tertanam di APK | Key bisa dicuri jika APK dibagikan | APK hanya untuk pribadi. Jika dibagikan nanti, pindah ke *ephemeral token* lewat backend gratis (lihat ARCHITECTURE.md). |
-| Streaming audio PCM di React Native | Kompleks secara teknis | Pakai `react-native-audio-api` di dev build; prototipe audio dikerjakan paling awal. |
+| API key di perangkat | Di APK tersimpan di Keystore; di web tersimpan di `localStorage` yang lebih mudah dibaca skrip di situs yang sama | Key tidak pernah dibundel ke APK atau situs; tiap pengguna memasukkan key sendiri. Situs tidak memuat skrip pihak ketiga. Jika dibagikan ke orang lain nanti, pindah ke *ephemeral token* lewat backend gratis (lihat ARCHITECTURE.md). |
+| Kuota EAS Build free plan | Build APK terbatas (15 build Android) dan antre | Pengembangan harian di web; build APK hanya saat perlu uji di HP. |
+| Streaming audio PCM di dua platform | Kompleks secara teknis; perilaku web dan Android bisa berbeda | Audio dipisah per platform dengan interface sama: Web Audio API di browser, `react-native-audio-api` di APK (EAS Build, bukan Expo Go). Prototipe audio dikerjakan paling awal dan diuji di keduanya. |
 
 ## 8. Metrik Keberhasilan (pribadi)
 

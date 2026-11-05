@@ -1,6 +1,8 @@
 # Roadmap — SpeakUp
 
-Urutan pengerjaan untuk Claude Code. Kerjakan **satu fase per sesi** (atau satu tugas per sesi untuk fase besar), uji di HP asli, commit, baru lanjut.
+Urutan pengerjaan untuk Claude Code. Kerjakan **satu fase per sesi** (atau satu tugas per sesi untuk fase besar), uji di browser dan di APK pada HP asli, commit, baru lanjut.
+
+Alur build: `npx expo start --web` → deploy Vercel → `npm i -g eas-cli` → `eas login` → `eas build -p android --profile preview` → pasang APK. Expo Go tidak dipakai untuk menguji fitur telepon.
 
 Tanda: `[ ]` belum, `[x]` selesai. Perbarui file ini setiap tugas selesai.
 
@@ -10,8 +12,10 @@ Tanda: `[ ]` belum, `[x]` selesai. Perbarui file ini setiap tugas selesai.
 
 - [ ] Buat API key gratis di Google AI Studio (https://aistudio.google.com) — tanpa billing.
 - [ ] Di halaman pricing, catat model Live dan model teks yang berlabel gratis di kolom Free Tier. Coba model Live itu di AI Studio → Live untuk merasakan kualitas suaranya.
-- [ ] Siapkan Android Studio + SDK + JDK untuk build lokal.
-- [ ] HP Android asli dengan USB debugging aktif (audio di emulator sering bermasalah).
+- [ ] Buat akun Vercel gratis (Hobby) dan hubungkan ke repo Git (atau pakai `vercel` CLI).
+- [ ] Buat akun Expo gratis untuk EAS Build; `npm i -g eas-cli` lalu `eas login`.
+- [ ] HP Android asli (Android 10+) yang boleh memasang APK dari luar Play Store.
+- [ ] Browser Chrome (desktop/HP) untuk menguji versi web.
 - [ ] Buat repo Git baru, salin `PRD.md`, `ARCHITECTURE.md`, `PROMPTS.md`, `ROADMAP.md`, `CLAUDE.md` ke root.
 
 ---
@@ -19,24 +23,27 @@ Tanda: `[ ]` belum, `[x]` selesai. Perbarui file ini setiap tugas selesai.
 ## Fase 1 — Kerangka Proyek
 
 - [x] Inisialisasi Expo + TypeScript + `expo-router`.
-- [x] Pasang `expo-dev-client`, `expo-sqlite`, `expo-secure-store`, `zustand`, `buffer`, `react-native-audio-api`.
+- [x] Pasang `expo-sqlite`, `expo-secure-store`, `zustand`, `buffer`, `react-native-audio-api`, `react-native-web`.
 - [x] Konfigurasi izin `RECORD_AUDIO` di `app.json`.
-- [x] Buat struktur folder sesuai `ARCHITECTURE.md §3` (file kosong/stub).
+- [x] Buat struktur folder sesuai `ARCHITECTURE.md §3` (file kosong/stub), termasuk pemisahan `*.web.ts` / `*.native.ts` untuk audio dan penyimpanan API key (§3a).
 - [x] `src/config/models.ts` berisi nama model Live, model teks, voice default, durasi telepon default.
-- [ ] Build lokal dan jalankan di HP: layar "Hello SpeakUp". _(menunggu Android Studio/JDK terpasang)_
+- [x] Konfigurasi web + EAS: `web.output: "single"`, `metro.config.js` (wasm + COEP/COOP), `vercel.json`, `eas.json` profil `preview` (APK).
+- [ ] Jalankan di browser (`npx expo start --web`): layar "Hello SpeakUp".
+- [ ] Deploy ke Vercel: layar "Hello SpeakUp" terbuka di URL Vercel, header COEP/COOP terkirim.
+- [ ] `eas build -p android --profile preview` → pasang APK di HP: layar "Hello SpeakUp".
 
-**Selesai jika:** `npx expo run:android` berhasil memasang dev build di HP.
+**Selesai jika:** "Hello SpeakUp" tampil di URL Vercel dan di APK hasil EAS Build yang terpasang di HP.
 
 ---
 
 ## Fase 2 — Prototipe Telepon (paling penting)
 
-Target: bisa ngobrol suara dengan Gemini Live dari HP. Belum ada database, belum ada kurikulum.
+Target: bisa ngobrol suara dengan Gemini Live dari browser dan dari APK di HP. Belum ada database, belum ada kurikulum.
 
-- [ ] Layar input API key sederhana → simpan di `expo-secure-store`.
+- [ ] Layar input API key sederhana → simpan lewat `apiKeyStore` (secure-store di Android, localStorage di web).
 - [ ] `src/audio/pcm.ts` + unit test: Float32↔Int16, resample ke 16 kHz, base64.
-- [ ] `MicStreamer`: rekam, resample, kirim chunk ~100 ms via callback.
-- [ ] `PcmPlayer`: antrean PCM 24 kHz tanpa jeda + `flush()`.
+- [ ] `MicStreamer.web.ts` (getUserMedia + AudioWorklet) dan `MicStreamer.native.ts` (react-native-audio-api): rekam, resample, kirim chunk ~100 ms via callback.
+- [ ] `PcmPlayer.web.ts` dan `PcmPlayer.native.ts`: antrean PCM 24 kHz tanpa jeda + `flush()`.
 - [ ] `LiveClient`: buka WebSocket, kirim `setup`, tunggu `setupComplete`, kirim audio, parse pesan server, event `audio`, `interrupted`, `inputTranscript`, `outputTranscript`, `turnComplete`, `close`, `error`.
 - [ ] Prompt sementara: guru bahasa Inggris sederhana.
 - [ ] Layar telepon minimal: tombol Telepon / Tutup, status, timer.
@@ -46,7 +53,7 @@ Target: bisa ngobrol suara dengan Gemini Live dari HP. Belum ada database, belum
 - Guru menyapa dan menjawab dengan suara jernih tanpa putus-putus.
 - Saat Mas Wahyu bicara di tengah jawaban guru, guru berhenti (barge-in).
 - Transkrip dua arah tercetak di log.
-- Diuji dengan speaker dan earphone; catat hasil soal gema di bagian *Catatan* di bawah.
+- Diuji di browser (Chrome) dan di APK, dengan speaker dan earphone; catat hasil soal gema di bagian *Catatan* di bawah.
 
 ---
 
@@ -128,5 +135,8 @@ _Isi selama pengerjaan: latensi, perilaku gema, model yang dipakai, batas kuota 
 
 - **Fase 1 (2026-11-05):** Expo SDK 58, React Native 0.88, TypeScript 6. Model dari dokumentasi resmi: Live `gemini-3.8-live`, teks `gemini-3.8-flash` (fallback `gemini-3.5-flash-lite`), voice `Kore`.
 - TypeScript 6 tidak lagi otomatis memuat `@types/*`, jadi `tsconfig.json` diberi `"types": ["jest"]`.
-- `react-dom` tetap dibutuhkan sebagai peer dependency `expo-router` walau app hanya Android.
+- `react-dom` dibutuhkan sebagai peer dependency `expo-router` (dan untuk target web).
 - `expo prebuild` sukses: manifest berisi `RECORD_AUDIO` + `MODIFY_AUDIO_SETTINGS`, `minSdkVersion=29`, tanpa foreground service.
+- **Pindah ke web + EAS (2026-11-05):** `expo-dev-client` dilepas (APK `preview` adalah build release, tidak butuh dev client). `expo-secure-store` tidak mendukung web → `apiKeyStore.web.ts` memakai `localStorage`.
+- Resolusi platform terverifikasi dengan `expo export`: bundle web hanya berisi `*.web.ts` (tanpa `react-native-audio-api`), bundle Android hanya berisi `*.native.ts`.
+- `expo-sqlite` web: header COEP `credentialless` + COOP `same-origin` wajib (dok resmi SDK 58). Di web tidak ada FTS.
