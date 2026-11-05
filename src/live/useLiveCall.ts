@@ -7,7 +7,7 @@ import { createMicStreamer } from '@/audio/MicStreamer';
 import { createPcmPlayer } from '@/audio/PcmPlayer';
 import { AudioError, type MicStreamer, type PcmPlayer } from '@/audio/types';
 import { DEFAULT_VOICE, LIVE_MODEL } from '@/config/models';
-import { CALL_START_CUE, PROTOTYPE_SYSTEM_PROMPT } from '@/prompts/prototypeCall';
+import { CALL_START_CUE, PROTOTYPE_ADDRESS_AS, buildPrototypePrompt } from '@/prompts/prototypeCall';
 import { apiKeyStore } from '@/storage/apiKeyStore';
 
 import { LiveClient } from './LiveClient';
@@ -56,6 +56,10 @@ export function useLiveCall() {
   const [tutorSpeaking, setTutorSpeaking] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [error, setError] = useState<CallError | null>(null);
+  /** Finished turns, for on-screen display. */
+  const [transcript, setTranscript] = useState<TranscriptTurn[]>([]);
+  /** Text of the turns still in progress (streaming transcription). */
+  const [liveText, setLiveText] = useState({ user: '', tutor: '' });
 
   const sessionRef = useRef<Session | null>(null);
   const endingRef = useRef(false);
@@ -66,9 +70,12 @@ export function useLiveCall() {
   const commitTurn = useCallback((speaker: 'user' | 'tutor', interrupted = false) => {
     const text = pendingRef.current[speaker].trim();
     pendingRef.current[speaker] = '';
+    setLiveText({ ...pendingRef.current });
     if (!text) return;
-    transcriptRef.current.push({ speaker, text, interrupted });
-    // Phase 2: transcript goes to the console only (saved to DB in Phase 4).
+    const turn: TranscriptTurn = { speaker, text, interrupted };
+    transcriptRef.current.push(turn);
+    setTranscript((t) => [...t, turn]);
+    // Also logged for debugging; saved to the DB in Phase 4.
     console.log(`[transcript] ${speaker}${interrupted ? ' (terpotong)' : ''}: ${text}`);
   }, []);
 
@@ -110,9 +117,11 @@ export function useLiveCall() {
           break;
         case 'inputTranscript':
           pendingRef.current.user += event.text;
+          setLiveText({ ...pendingRef.current });
           break;
         case 'outputTranscript':
           pendingRef.current.tutor += event.text;
+          setLiveText({ ...pendingRef.current });
           break;
         case 'turnComplete':
           commitTurn('user');
@@ -141,6 +150,8 @@ export function useLiveCall() {
     endingRef.current = false;
     transcriptRef.current = [];
     pendingRef.current = { user: '', tutor: '' };
+    setTranscript([]);
+    setLiveText({ user: '', tutor: '' });
     setError(null);
     setElapsedSec(0);
     setTutorSpeaking(false);
@@ -169,7 +180,7 @@ export function useLiveCall() {
       apiKey,
       model: LIVE_MODEL,
       voiceName: DEFAULT_VOICE,
-      systemInstruction: PROTOTYPE_SYSTEM_PROMPT,
+      systemInstruction: buildPrototypePrompt(PROTOTYPE_ADDRESS_AS),
     });
     const mic = createMicStreamer();
     const unsubscribe = client.on(handleEvent);
@@ -222,5 +233,5 @@ export function useLiveCall() {
     [teardown],
   );
 
-  return { status, tutorSpeaking, elapsedSec, error, start, hangUp };
+  return { status, tutorSpeaking, elapsedSec, error, transcript, liveText, start, hangUp };
 }
