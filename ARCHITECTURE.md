@@ -165,7 +165,7 @@ idle → connecting → active ⇄ (userSpeaking | tutorSpeaking | listening)
 
 ## 5. Konfigurasi Sesi Live
 
-Pesan `setup` pertama (nama field **wajib dicek ulang** dengan referensi API terbaru):
+Pesan `setup` pertama. Nama field diverifikasi 5 November 2026 terhadap referensi `BidiGenerateContent` dan panduan migrasi `gemini-3.8-live`; tetap **wajib dicek ulang** sebelum mengubah `src/live/`. Builder: `src/live/messages.ts` (`buildSetupMessage`). Fase 2 belum mengirim dua field terakhir; keduanya ditambahkan di Fase 3.
 
 ```jsonc
 {
@@ -188,7 +188,13 @@ Pesan `setup` pertama (nama field **wajib dicek ulang** dengan referensi API ter
 
 - **Model:** pilih model Live yang di halaman pricing tertulis gratis di kolom Free Tier. Dicek 5 November 2026: `gemini-3.8-live` adalah model default Live API (gratis, dipakai di semua contoh resmi); `gemini-3.1-flash-live-preview` sudah berlabel *legacy*. Model teks: `gemini-3.8-flash` dengan fallback `gemini-3.5-flash-lite` saat kuota habis. Voice default di contoh resmi: `Kore`. Semua nilai ini hanya ada di `src/config/models.ts`.
 - **Deteksi suara (VAD):** pakai deteksi otomatis bawaan dulu. Jika guru terlalu cepat memotong saat murid berpikir, atur sensitivitas akhir bicara di `realtimeInputConfig.automaticActivityDetection` — pemula butuh jeda lebih panjang.
-- **Durasi:** sesi audio punya batas durasi; `contextWindowCompression` + `sessionResumption` dipakai agar telepon 15–20 menit tidak terputus. Default timer telepon di app: 15 menit, dengan peringatan di menit 13.
+- **Durasi:** menurut dokumentasi, sesi audio tanpa kompresi dibatasi 15 menit, dan **satu koneksi WebSocket hidup sekitar 10 menit** (server mengirim `goAway` sebelum memutus). Jadi telepon 15 menit pasti butuh `contextWindowCompression` + `sessionResumption` (handle berlaku 2 jam) + sambung ulang otomatis (Fase 3). Default timer telepon di app: 15 menit, dengan peringatan di menit 13.
+- **Khusus `gemini-3.8-live`:** respons hanya `AUDIO`; `thinkingConfig`/`thinking_level` tidak didukung (jangan dikirim); *proactive audio* selalu aktif (`proactive_audio: false` = error); *affective dialog* dihapus.
+- **Audio masuk:** `realtimeInput.audio` = `{ data: <base64>, mimeType: "audio/pcm;rate=16000" }` (PCM 16-bit LE). `mediaChunks` sudah *deprecated*. `realtimeInput.audioStreamEnd: true` hanya saat deteksi aktivitas otomatis aktif (default).
+- **Audio keluar:** `serverContent.modelTurn.parts[].inlineData.data`, PCM 16-bit LE 24 kHz. Dokumentasi tidak menyebut `mimeType`-nya, jadi parser menerima part tanpa `mimeType` atau yang berawalan `audio/`.
+- **Guru bicara duluan:** model Live baru menjawab setelah ada input. Setelah `setupComplete`, klien mengirim satu giliran teks `user` lewat `clientContent` dengan `turnComplete: true` (teks pemicu ada di `PROMPTS.md`). Untuk 3.8, `clientContent` didukung sepanjang sesi, tetapi `turnComplete: true` selalu menginterupsi generasi yang sedang berjalan, jadi hanya dipakai di awal.
+- **Frame WebSocket:** contoh resmi memperlakukan pesan server sebagai teks JSON. Klien memasang `binaryType = "arraybuffer"` dan tetap bisa mendekode frame teks, `ArrayBuffer`, maupun `Blob`.
+- **Error:** dokumentasi tidak mendaftar kode close/error (key salah, kuota habis). Klien meneruskan `code` + `reason` dari event `close` ke UI sebagai detail; catat nilai yang benar-benar muncul di *Catatan Hasil Uji* ROADMAP.
 
 ### Endpoint & autentikasi
 
