@@ -51,7 +51,9 @@ Urutan: **web dulu** (2a), versi `.native.ts` baru dikerjakan setelah versi web 
 - [x] Prompt sementara: guru bahasa Inggris sederhana (`PROMPTS.md §0`).
 - [x] Layar telepon minimal: tombol Telepon / Tutup, status, timer.
 - [x] Log transkrip ke console.
-- [ ] Uji di browser (lokal + URL Vercel).
+- [x] Uji di browser lokal (lihat *Catatan Hasil Uji*). Uji ulang di URL Vercel setelah push.
+- [x] Guru menyapa dengan "Mas Wahyu" (placeholder `{{address_as}}`; nanti dari profil).
+- [x] Transkrip tampil di layar telepon (selain di console).
 
 ### 2b — Android (setelah 2a lulus uji)
 - [ ] `MicStreamer.native.ts` (react-native-audio-api).
@@ -154,4 +156,5 @@ _Isi selama pengerjaan: latensi, perilaku gema, model yang dipakai, batas kuota 
 - **Uji web lokal (2026-11-05, Microsoft Edge, Windows):** `npx expo start --web` → "Hello SpeakUp" tampil; `crossOriginIsolated` = `true` (header COEP/COOP dari `metro.config.js` aktif); `/call/lesson` tampil ("Telepon Guru – Mode: lesson").
 - **Uji Vercel (2026-11-05):** https://speakup-phi-one.vercel.app — import repo GitHub di dashboard, auto-deploy dari `main`. "Hello SpeakUp" tampil; refresh `/call/lesson` tidak 404 (rewrite SPA bekerja); `crossOriginIsolated` = `true` (header dari `vercel.json` terkirim).
 - **Fase 2a (kode, 2026-11-05):** belum diuji manual. Mic web memakai `AudioContext({ sampleRate: 16000 })` agar browser yang me-resample; jika browser menolak, jatuh ke sample rate perangkat + `StreamingResampler` di `pcm.ts`. Sapaan pembuka dipicu lewat `clientContent`. Koneksi Live hanya ~10 menit per WebSocket menurut dokumentasi → sambung ulang dengan `sessionResumption` wajib di Fase 3.
+- **Uji Fase 2a web lokal (2026-11-05, Edge, Windows, pakai speaker):** tersambung; timer berjalan; status berganti "Mendengarkan"/"Guru berbicara"; kualitas suara bagus; jeda jawaban baik; barge-in baik. Dengan speaker tanpa earphone tidak dilaporkan masalah gema. Masukan: guru diminta menyapa "Mas Wahyu" dan transkrip ditampilkan di layar → keduanya sudah diperbaiki.
 - **Perubahan urutan:** uji build APK (`eas build -p android --profile preview`) ditunda dari Fase 1 ke akhir Fase 2 (2c) untuk menghemat jatah EAS Build free plan.
