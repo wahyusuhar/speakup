@@ -8,10 +8,17 @@
     "scheme": "speakup",
     "userInterfaceStyle": "automatic",
     "platforms": [
-      "android"
+      "android",
+      "web"
     ],
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
     "android": {
       "package": "com.wahyu.speakup",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
