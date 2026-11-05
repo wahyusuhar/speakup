@@ -1,10 +1,11 @@
 import { Link, Redirect, useLocalSearchParams } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View, type ScrollViewInstance } from 'react-native';
 
 import { CALL_DURATION_MIN, CALL_WARNING_MIN } from '@/config/models';
+import { STARTER_LESSON_MIN_SEC } from '@/config/starterLessons';
 import { getDb } from '@/db/client';
-import { SESSION_MODES, saveCallSession, type SessionMode } from '@/db/repos/sessions';
+import { SESSION_MODES, countSessions, saveCallSession, type SessionMode } from '@/db/repos/sessions';
 import {
   useLiveCall,
   type CallEndRecord,
@@ -12,11 +13,17 @@ import {
   type CallStatus,
   type TranscriptTurn,
 } from '@/live/useLiveCall';
-import { buildPrototypePrompt } from '@/prompts/prototypeCall';
+import { WRAP_UP_CUE, resolveIndonesianSupport } from '@/prompts/blocks';
+import {
+  buildStarterCallPrompt,
+  pickStarterLesson,
+  plannedCallMinutes,
+  wrapUpCueAtSec,
+} from '@/prompts/starterCall';
 import { useProfileStore } from '@/store/profileStore';
 
 // Call screen. mode: placement | lesson | free
-// Until Phase 5/6 every mode uses the temporary prototype prompt.
+// Until Phase 5/6 every mode uses the temporary guided starterCall prompt with a built-in lesson.
 
 type SaveState = 'idle' | 'saving' | 'saved' | 'failed';
 
@@ -73,12 +80,32 @@ export default function CallScreen() {
   const mode = toMode(params.mode);
   const profile = useProfileStore((s) => s.profile);
   const [saveState, setSaveState] = useState<SaveState>('idle');
+  /** Earlier calls long enough to count as a finished starter lesson; null while loading. */
+  const [lessonsDone, setLessonsDone] = useState<number | null>(null);
+
+  const refreshLessonsDone = useCallback(() => {
+    getDb()
+      .then((db) => countSessions(db, { mode, minDurationSec: STARTER_LESSON_MIN_SEC }))
+      .then(setLessonsDone)
+      .catch((e: unknown) => {
+        console.warn('[call] failed to count sessions', e);
+        setLessonsDone(0);
+      });
+  }, [mode]);
+
+  useEffect(refreshLessonsDone, [refreshLessonsDone]);
+
+  const support = profile ? resolveIndonesianSupport(profile) : 'full';
+  const lesson = useMemo(() => pickStarterLesson(support, lessonsDone ?? 0), [support, lessonsDone]);
 
   const onCallEnded = (record: CallEndRecord) => {
     setSaveState('saving');
     getDb()
       .then((db) => saveCallSession(db, { ...record, mode, unitId: null }))
-      .then(() => setSaveState('saved'))
+      .then(() => {
+        setSaveState('saved');
+        refreshLessonsDone();
+      })
       .catch((e: unknown) => {
         console.warn('[call] failed to save session', e);
         setSaveState('failed');
@@ -94,8 +121,13 @@ export default function CallScreen() {
   if (!profile) return <Redirect href="/onboarding" />;
 
   const startCall = () => {
+    if (lessonsDone === null) return;
     setSaveState('idle');
-    void start({ systemInstruction: buildPrototypePrompt(profile.addressAs) });
+    const minutes = plannedCallMinutes(profile.dailyMinutes);
+    void start({
+      systemInstruction: buildStarterCallPrompt({ addressAs: profile.addressAs, support, minutes, lesson }),
+      wrapUpCue: { atSec: wrapUpCueAtSec(minutes), text: WRAP_UP_CUE },
+    });
   };
 
   const liveUser = liveText.user.trim();
@@ -111,7 +143,7 @@ export default function CallScreen() {
           <Text style={styles.avatarText}>R</Text>
         </View>
         <Text style={styles.name}>Miss Rina</Text>
-        <Text style={styles.mode}>Mode: {mode}</Text>
+        <Text style={styles.mode}>Pelajaran: {lessonsDone === null ? '…' : lesson.title}</Text>
         <Text style={styles.status}>{statusText(status, tutorSpeaking)}</Text>
         <Text style={styles.timer}>{formatTime(elapsedSec)}</Text>
         {showWarning ? (

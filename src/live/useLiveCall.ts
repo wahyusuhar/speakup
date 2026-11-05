@@ -8,7 +8,7 @@ import { createMicStreamer } from '@/audio/MicStreamer';
 import { createPcmPlayer } from '@/audio/PcmPlayer';
 import { AudioError, type MicStreamer, type PcmPlayer } from '@/audio/types';
 import { CALL_DURATION_MIN, DEFAULT_VOICE, LIVE_MODEL } from '@/config/models';
-import { CALL_START_CUE } from '@/prompts/prototypeCall';
+import { CALL_START_CUE } from '@/prompts/blocks';
 import { apiKeyStore } from '@/storage/apiKeyStore';
 
 import { buildCallEndRecord, endReasonForClose, type CallEndReason, type CallEndRecord } from './callRecord';
@@ -38,7 +38,15 @@ export type UseLiveCallOptions = {
 
 export type StartCallOptions = {
   systemInstruction: string;
+  /**
+   * Text turn sent once after `atSec` seconds (PROMPTS.md Blok C). A clientContent turn
+   * interrupts the tutor's current generation, so it waits until the tutor is silent
+   * (at most WRAP_UP_MAX_WAIT_SEC extra).
+   */
+  wrapUpCue?: { atSec: number; text: string };
 };
+
+const WRAP_UP_MAX_WAIT_SEC = 30;
 
 type Session = {
   client: LiveClient;
@@ -83,6 +91,8 @@ export function useLiveCall(options: UseLiveCallOptions = {}) {
   const reportedRef = useRef(false);
   const transcriptRef = useRef<TranscriptTurn[]>([]);
   const pendingRef = useRef({ user: '', tutor: '' });
+  const tutorSpeakingRef = useRef(false);
+  const wrapUpRef = useRef<{ atSec: number; text: string; sent: boolean } | null>(null);
 
   const onCallEndedRef = useRef(options.onCallEnded);
   useEffect(() => {
@@ -194,9 +204,11 @@ export function useLiveCall(options: UseLiveCallOptions = {}) {
   );
 
   const start = useCallback(
-    async ({ systemInstruction }: StartCallOptions) => {
+    async ({ systemInstruction, wrapUpCue }: StartCallOptions) => {
       if (sessionRef.current) return;
       endingRef.current = false;
+      wrapUpRef.current = wrapUpCue ? { ...wrapUpCue, sent: false } : null;
+      tutorSpeakingRef.current = false;
       startedAtRef.current = 0;
       reportedRef.current = false;
       transcriptRef.current = [];
@@ -209,7 +221,12 @@ export function useLiveCall(options: UseLiveCallOptions = {}) {
       setStatus('connecting');
 
       // Start audio output first, while we are still inside the user's tap.
-      const player = createPcmPlayer({ onPlayingChange: setTutorSpeaking });
+      const player = createPcmPlayer({
+        onPlayingChange: (playing) => {
+          tutorSpeakingRef.current = playing;
+          setTutorSpeaking(playing);
+        },
+      });
       try {
         await player.start();
       } catch (e) {
@@ -258,13 +275,24 @@ export function useLiveCall(options: UseLiveCallOptions = {}) {
 
   const hangUp = useCallback(() => endCall('user_hangup'), [endCall]);
 
-  // Call timer + automatic end at CALL_DURATION_MIN.
+  // Call timer, wrap-up cue, and automatic end at CALL_DURATION_MIN.
   useEffect(() => {
     if (status !== 'active') return;
     const id = setInterval(() => {
       const sec = Math.floor((Date.now() - startedAtRef.current) / 1000);
       setElapsedSec(sec);
-      if (sec >= MAX_CALL_SEC && !endingRef.current) void endCall('timeout');
+      if (sec >= MAX_CALL_SEC && !endingRef.current) {
+        void endCall('timeout');
+        return;
+      }
+      const cue = wrapUpRef.current;
+      if (cue && !cue.sent && sec >= cue.atSec) {
+        const tutorSilent = !tutorSpeakingRef.current && pendingRef.current.tutor === '';
+        if (tutorSilent || sec >= cue.atSec + WRAP_UP_MAX_WAIT_SEC) {
+          cue.sent = true;
+          sessionRef.current?.client.sendText(cue.text);
+        }
+      }
     }, 1000);
     return () => clearInterval(id);
   }, [status, endCall]);

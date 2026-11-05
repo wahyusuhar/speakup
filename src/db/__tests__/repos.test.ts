@@ -3,7 +3,14 @@ import { migrate } from '../migrations';
 import { getNextUnit, getUnit, insertUnits, listUnits, setUnitStatus, type UnitInput } from '../repos/curriculum';
 import { insertMistakes, listMistakesBySession } from '../repos/mistakes';
 import { getProfile, saveOnboarding, updateProfile } from '../repos/profile';
-import { getSession, getTranscript, listSessions, saveCallSession, type CallRecord } from '../repos/sessions';
+import {
+  countSessions,
+  getSession,
+  getTranscript,
+  listSessions,
+  saveCallSession,
+  type CallRecord,
+} from '../repos/sessions';
 import { getSetting, setSetting } from '../repos/settings';
 import { addVocabulary, countVocabulary, listVocabulary } from '../repos/vocabulary';
 import { createTestDb } from '../testing/nodeSqliteDb';
@@ -109,6 +116,15 @@ describe('sessions repo', () => {
       saveCallSession(db, { ...call, turns: [{ speaker: 'robot' as 'user', text: 'x' }] }),
     ).rejects.toThrow();
     expect(await listSessions(db)).toEqual([]);
+  });
+
+  it('counts sessions by mode and minimum duration', async () => {
+    await saveCallSession(db, call);
+    await saveCallSession(db, { ...call, durationSec: 60 });
+    await saveCallSession(db, { ...call, mode: 'lesson' });
+    expect(await countSessions(db, { mode: 'free' })).toBe(2);
+    expect(await countSessions(db, { mode: 'free', minDurationSec: 180 })).toBe(1);
+    expect(await countSessions(db, { mode: 'placement' })).toBe(0);
   });
 });
 

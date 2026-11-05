@@ -105,6 +105,18 @@ export async function listSessions(db: SqlDatabase, limit = 50): Promise<Session
   return rows.map(toSummary);
 }
 
+/** Number of saved sessions in a mode that lasted at least `minDurationSec`. */
+export async function countSessions(
+  db: SqlDatabase,
+  { mode, minDurationSec = 0 }: { mode: SessionMode; minDurationSec?: number },
+): Promise<number> {
+  const row = await db.getFirstAsync<{ n: number }>(
+    'SELECT COUNT(*) AS n FROM sessions WHERE mode = ? AND COALESCE(duration_sec, 0) >= ?',
+    [mode, minDurationSec],
+  );
+  return row?.n ?? 0;
+}
+
 export async function getTranscript(db: SqlDatabase, sessionId: number): Promise<TurnInput[]> {
   const rows = await db.getAllAsync<{ speaker: string; text: string }>(
     'SELECT speaker, text FROM transcript_turns WHERE session_id = ? ORDER BY seq',

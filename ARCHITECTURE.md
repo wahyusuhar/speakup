@@ -68,7 +68,8 @@ speakup/
 │   └── settings.tsx
 ├── src/
 │   ├── config/
-│   │   └── models.ts             # Nama model, voice default, batas durasi
+│   │   ├── models.ts             # Nama model, voice default, batas durasi
+│   │   └── starterLessons.ts     # Pelajaran bawaan sementara (sebelum kurikulum Fase 5)
 │   ├── live/                     # SEMUA kode Gemini Live di sini
 │   │   ├── LiveClient.ts         # WebSocket, setup, kirim/terima pesan
 │   │   ├── types.ts              # Tipe pesan client/server
@@ -93,6 +94,8 @@ speakup/
 │   │   ├── placement.ts          # Transkrip placement → level
 │   │   └── curriculum.ts         # Susun / perbarui kurikulum
 │   ├── prompts/                  # Isi diambil dari PROMPTS.md
+│   │   ├── blocks.ts             # Blok bersama: aturan bahasa per level, latihan tirukan, isyarat waktu
+│   │   ├── starterCall.ts        # Telepon terpandu sementara (sampai Fase 6)
 │   │   ├── tutorCall.ts
 │   │   ├── placementCall.ts
 │   │   ├── analyzeSession.ts
