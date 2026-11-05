@@ -13,6 +13,7 @@ expo-env.d.ts
 .kotlin/
 *.orig.*
 *.jks
+*.keystore
 *.p8
 *.p12
 *.key
@@ -34,6 +35,14 @@ yarn-error.*
 .env
 .env*
 
+# Vercel CLI project link
+.vercel/
+
+# EAS local credentials and downloaded build artifacts
+credentials.json
+*.apk
+*.aab
+
 # test output
 coverage/
 
@@ -43,5 +52,5 @@ coverage/
 example
 
 # generated native folders
-/ios
-/android
+ios/
+android/
