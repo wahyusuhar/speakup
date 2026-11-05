@@ -64,7 +64,7 @@ Prioritas: **P0** wajib untuk MVP, **P1** penting setelah MVP, **P2** nanti.
 ### F1. Onboarding & Self-Assessment — P0
 - Pengguna mengisi: nama sapaan (mis. "Mas Wahyu", dipakai guru saat menyapa), perkiraan kemampuan (pilihan: "Hampir nol", "Dasar", "Menengah", "Lancar"), tujuan belajar (kerja, interview, ngobrol sehari-hari, dll.), target waktu per hari.
 - Data ini menjadi konteks awal guru.
-- **Diterima jika:** data tersimpan di SQLite dan dipakai di prompt placement.
+- **Diterima jika:** data tersimpan di SQLite dan dipakai di prompt telepon (sapaan, porsi bahasa Indonesia, durasi) dan prompt placement.
 
 ### F2. Telepon Guru (fitur utama) — P0
 - Layar panggilan bergaya telepon: nama/avatar guru, status ("Menyambungkan…", "Guru berbicara", "Mendengarkan"), timer durasi, tombol **Mute**, **Speaker**, **Tutup**.
@@ -73,12 +73,21 @@ Prioritas: **P0** wajib untuk MVP, **P1** penting setelah MVP, **P2** nanti.
 - Indikator visual saat pengguna berbicara (level mikrofon) dan saat guru berbicara.
 - Transkrip suara pengguna dan guru **ditampilkan di layar** selama telepon (gelembung percakapan, teks yang sedang diucapkan ikut muncul) dan disimpan setelah telepon. (Sudah ada sejak prototipe Fase 2.)
 - Jika koneksi terputus: tampilkan pesan, simpan transkrip yang sudah ada, tawarkan sambung ulang.
-- **Diterima jika:** jeda dari pengguna selesai bicara sampai guru mulai menjawab terasa wajar (target < 1,5 detik di jaringan 4G), barge-in bekerja, dan transkrip tersimpan setelah telepon ditutup.
+- **Guru menuntun seperti guru privat.** Porsi bahasa ditentukan level (level CEFR, atau self-assessment kalau belum placement):
+  - "Hampir nol" / A1: semua percakapan, instruksi, penjelasan, dan pujian dalam bahasa Indonesia. Bahasa Inggris hanya untuk kata/kalimat yang sedang dipelajari.
+  - "Dasar" / A2: sebagian besar bahasa Indonesia, pertanyaan latihan pendek dalam bahasa Inggris.
+  - "Menengah" / B1: bahasa Inggris sederhana, bahasa Indonesia hanya untuk penjelasan singkat.
+  - "Lancar" / B2+: bahasa Inggris saja.
+- **Struktur sesi:** (1) pembukaan — sapa dengan sapaan profil, tanya kabar, sebut durasi belajar sesuai menit per hari (maks 8 menit per telepon); (2) agenda hari ini; (3) per bagian dengan kalimat transisi yang jelas; (4) penutup — ringkasan yang dipelajari dan satu hal untuk dilatih. Satu menit sebelum durasi habis, app mengirim isyarat waktu ke guru agar penutup sempat diucapkan.
+- **Latihan tirukan:** guru mengucapkan kata/kalimat bahasa Inggris dengan pelan, memberi artinya, lalu meminta murid menirukan. Kalau sudah jelas, guru memuji secara spesifik. Kalau belum, guru menyebut bagian yang kurang (dalam bahasa Indonesia) dan mencontohkan lagi. Maksimal 3 kali percobaan per item, lalu lanjut dengan semangat.
+- Sebelum kurikulum (F4) ada, telepon memakai **pelajaran bawaan** dari config (`src/config/starterLessons.ts`), bergiliran per sesi.
+- **Diterima jika:** jeda dari pengguna selesai bicara sampai guru mulai menjawab terasa wajar (target < 1,5 detik di jaringan 4G), barge-in bekerja, transkrip tersimpan setelah telepon ditutup, dan untuk profil "Hampir nol" guru berbicara bahasa Indonesia kecuali pada item yang dipelajari serta menjalankan pembukaan → agenda → bagian → penutup.
 
 ### F3. Placement Test via Telepon — P0
 - Telepon khusus 5–7 menit. Guru bertanya bertahap dari mudah ke sulit.
-- Setelah selesai, transkrip dianalisis model teks → level CEFR (A1–C2) + kekuatan & kelemahan.
-- **Diterima jika:** level dan ringkasan tersimpan, dan pengguna melihat hasilnya dalam bahasa Indonesia.
+- Setelah selesai, transkrip dianalisis model teks → level CEFR (A1–C2) + kekuatan & kelemahan + porsi bahasa Indonesia yang disarankan.
+- **Untuk "Hampir nol" tidak ada telepon placement berbahasa Inggris yang dipaksakan.** Pengguna memilih antara **"Langsung mulai dari A1"** (disarankan, tanpa telepon) atau **"Cek singkat 3 menit"** yang seluruhnya dipandu bahasa Indonesia.
+- **Diterima jika:** level dan ringkasan tersimpan, pengguna melihat hasilnya dalam bahasa Indonesia, dan pengguna "Hampir nol" bisa mulai belajar tanpa telepon berbahasa Inggris.
 
 ### F4. Kurikulum Adaptif — P0
 - AI menyusun daftar unit pelajaran (misalnya 8–12 unit untuk level saat ini), tiap unit punya tujuan, kosakata target, pola grammar target, dan skenario. **Materi lengkap untuk layar Materi Pelajaran (F12) dibuat sekaligus** oleh model teks saat unit disusun, lalu disimpan di database (tidak dibuat ulang setiap dibuka).
